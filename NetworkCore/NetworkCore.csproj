@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Title>Network Core</Title>
+        <Authors>rayleigh</Authors>
+        <Description>Network interaction library</Description>
+        <Copyright>2019 Vladislav Pashaiev</Copyright>
+        <PackageTags>network, framework</PackageTags>
+        <TargetFrameworks>net45;netcoreapp2.1</TargetFrameworks>
+        <PackageVersion>1.1.0</PackageVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="protobuf-net" Version="2.4.0" />
+    </ItemGroup>
+
+</Project>
