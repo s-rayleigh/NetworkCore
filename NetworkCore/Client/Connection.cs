@@ -120,7 +120,7 @@ namespace NetworkCore.Client
 
 			try
 			{
-				await this.socket.ConnectTask(this.endPoint);
+				await this.socket.ConnectTask(this.endPoint).ConfigureAwait(false);
 			}
 			catch(Exception e) when (e is SocketException || e is InvalidOperationException)
 			{
@@ -149,7 +149,7 @@ namespace NetworkCore.Client
 
 					try
 					{
-						bytesRead = await this.socket.ReceiveTask(this.buffer.Data);
+						bytesRead = await this.socket.ReceiveTask(this.buffer.Data).ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException)
 					{
@@ -159,14 +159,14 @@ namespace NetworkCore.Client
 					catch(SocketException e)
 					{
 						this.DataReceiveError?.Invoke(e);
-						await this.Disconnect();
+						await this.Disconnect().ConfigureAwait(false);
 						this.Disconnected?.Invoke();
 						return;
 					}
 
 					if(bytesRead <= 0)
 					{
-						await this.Disconnect();
+						await this.Disconnect().ConfigureAwait(false);
 						this.Disconnected?.Invoke();
 						break;
 					}
@@ -178,7 +178,7 @@ namespace NetworkCore.Client
 					catch(ProtocolViolationException e)
 					{
 						this.DataReceiveError?.Invoke(e);
-						await this.Disconnect();
+						await this.Disconnect().ConfigureAwait(false);
 						this.Disconnected?.Invoke();
 						return;
 					}
@@ -218,7 +218,7 @@ namespace NetworkCore.Client
 			try
 			{
 				this.socket.Shutdown(SocketShutdown.Both);
-				await this.socket.DisconnectTask(false); // TODO: reuse
+				await this.socket.DisconnectTask(false).ConfigureAwait(false); // TODO: reuse
 			}
 			catch(ObjectDisposedException) { }
 

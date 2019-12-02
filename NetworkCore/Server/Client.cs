@@ -92,7 +92,7 @@ namespace NetworkCore.Server
 			try
 			{
 				this.Socket.Shutdown(SocketShutdown.Both);
-				await this.Socket.DisconnectTask(false);
+				await this.Socket.DisconnectTask(false).ConfigureAwait(false);
 			}
 			catch(ObjectDisposedException) { }
 		}

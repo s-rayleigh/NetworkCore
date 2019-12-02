@@ -125,7 +125,7 @@ namespace NetworkCore.Server
 
 					try
 					{
-						clientSocket = await this.socket.AcceptTask();
+						clientSocket = await this.socket.AcceptTask().ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException)
 					{
@@ -178,7 +178,7 @@ namespace NetworkCore.Server
 
 					try
 					{
-						bytesRead = await client.Socket.ReceiveTask(client.Buffer.Data);
+						bytesRead = await client.Socket.ReceiveTask(client.Buffer.Data).ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException e)
 					{
