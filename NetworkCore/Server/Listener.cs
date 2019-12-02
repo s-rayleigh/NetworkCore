@@ -32,9 +32,7 @@ namespace NetworkCore.Server
 		private IPEndPoint listeningEndPoint;
 
 		private Socket socket;
-		
-		private readonly ManualResetEvent connectionComplete = new ManualResetEvent(true);
-		
+
 		#region Delegates
 
 		public delegate void PacketHandler(Packet packet, Client client);
@@ -118,23 +116,6 @@ namespace NetworkCore.Server
 
 			this.socket.Bind(this.listeningEndPoint);
 			this.socket.Listen(queueLength);
-			
-//			while(true)
-//			{
-//				if(this.connectionComplete.WaitOne(1000))
-//				{
-//					// TODO: catch exceptions
-//					this.socket.BeginAccept(this.AcceptCallback, this.socket);
-//					this.connectionComplete.Reset();
-//				}
-//
-//				if(stopToken.IsCancellationRequested)
-//				{
-//					this.socket.Shutdown(SocketShutdown.Both);
-//					this.socket.Close(1000);
-//					break;
-//				}
-//			}
 
 			var acceptTask = Task.Run(async () =>
 			{
@@ -156,104 +137,9 @@ namespace NetworkCore.Server
 						// ignored
 					}
 
-					if(!(clientSocket is null))
+					if(clientSocket != null)
 					{
-						_ = Task.Run(async () =>
-						{
-							var client = new Client(clientSocket, this.Model, this.ReceiveBufferSize);
-			
-							this.ClientConnected?.Invoke(client);
-
-							// Client disconnected while sending the packet
-							client.DisconnectedInternal += delegate(Client c)
-							{
-								c.CloseSocket();
-								this.ClientDisconnected?.Invoke(c);
-							};
-
-							// Begin receiving data from client
-//							this.BeginReceive(client);
-
-							var manualDisconnectToken = client.DisconnectToken;
-
-							while(!(stopToken.IsCancellationRequested || manualDisconnectToken.IsCancellationRequested))
-							{
-								int bytesRead;
-								
-								try
-								{
-									bytesRead = await client.Socket.ReceiveTask(client.Buffer.Data);
-								}
-								catch(ObjectDisposedException e)
-								{
-									this.ErrorOccurred?.Invoke(ListenerError.SocketClosed, e);
-									this.ClientDisconnected?.Invoke(client);
-									return;
-								}
-								catch(SocketException e)
-								{
-									this.ErrorOccurred(ListenerError.SocketError, e);
-									this.ClientDisconnected?.Invoke(client);
-									client.CloseSocket();
-									return;
-								}
-								catch(Exception e)
-								{
-									this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
-									this.ClientDisconnected?.Invoke(client);
-									client.CloseSocket();
-									return;
-								}
-								
-								// Detect client disconnect
-								if(bytesRead <= 0)
-								{
-									this.ClientDisconnected?.Invoke(client);
-									client.CloseSocket();
-									return;
-								}
-
-								try
-								{
-									client.Buffer.TryReceive(bytesRead);
-								}
-								catch(ProtocolViolationException e)
-								{
-									// Buffer corrupted. Disconnecting client
-									client.CloseSocket();
-									this.ClientDisconnected?.Invoke(client);
-									this.ErrorOccurred?.Invoke(ListenerError.BufferCorrupted, e);
-									return;
-								}
-
-								var receivedFlag = false;
-								
-								// Handle all packets in the buffer queue
-								while(client.Buffer.TryGetPacketBytes(out var packetBytes))
-								{
-									var packet = this.Model.Deserialize(packetBytes);
-									this.PacketReceived?.Invoke(packet, client);
-
-									if(this.Dispatcher is null) { continue; }
-				
-									if(this.DispatchAsync)
-									{
-										_ = this.Dispatcher.DispatchAsync(packet, client);
-									}
-									else
-									{
-										this.Dispatcher.Dispatch(packet, client);
-									}
-
-									receivedFlag = true;
-								}
-
-								if(receivedFlag)
-								{
-									client.LastDataReceive = DateTime.UtcNow;
-								}
-							}
-						}, stopToken);
+						this.RunReceiveTask(clientSocket, stopToken);
 					}
 
 					if(stopToken.IsCancellationRequested)
@@ -268,135 +154,105 @@ namespace NetworkCore.Server
 			// We cannot cancel AcceptTask so end task immediately after cancel received
 			return Task.WhenAny(acceptTask, Task.Run(() => { stopToken.WaitHandle.WaitOne(); }));
 		}
-		
-		[Obsolete]
-		private void AcceptCallback(IAsyncResult ar)
+
+		private void RunReceiveTask(Socket clientSocket, CancellationToken stopToken)
 		{
-			// Connect next client in queue
-			this.connectionComplete.Set();
-			var clientSocket = (Socket)ar.AsyncState;
-			
-			try
+			Task.Run(async () =>
 			{
-				clientSocket = clientSocket.EndAccept(ar);
-			}
-			catch
-			{
-				// Socket is disposed or socket error has occurred so we do not process incoming connection
-				return;
-			}
+				var client = new Client(clientSocket, this.Model, this.ReceiveBufferSize);
 
-			var client = new Client(clientSocket, this.Model, this.ReceiveBufferSize);
-			
-			this.ClientConnected?.Invoke(client);
+				this.ClientConnected?.Invoke(client);
 
-			// Client disconnected while sending the packet
-			client.DisconnectedInternal += delegate(Client c)
-			{
-				c.CloseSocket();
-				this.ClientDisconnected?.Invoke(c);
-			};
-
-			// Begin receiving data from client
-			this.BeginReceive(client);
-		}
-
-		private void BeginReceive(Client client)
-		{
-			try
-			{
-				// Begin receiving data from client
-				client.Socket.BeginReceive(client.Buffer.Data, 0, client.Buffer.Size, 0, this.ReceiveClientData, client);
-			}
-			catch(ObjectDisposedException e)
-			{
-				this.ErrorOccurred?.Invoke(ListenerError.SocketClosed, e);
-				this.ClientDisconnected?.Invoke(client);
-			}
-			catch(SocketException e)
-			{
-				this.ErrorOccurred(ListenerError.SocketError, e);
-				this.ClientDisconnected?.Invoke(client);
-				client.CloseSocket();
-			}
-			catch(Exception e)
-			{
-				this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
-				this.ClientDisconnected?.Invoke(client);
-				client.CloseSocket();
-			}
-		}
-
-		private void ReceiveClientData(IAsyncResult ar)
-		{
-			var client = (Client)ar.AsyncState;
-			int bytesRead;
-
-			try
-			{
-				bytesRead = client.Socket.EndReceive(ar);
-			}
-			catch(ObjectDisposedException e)
-			{
-				this.ErrorOccurred?.Invoke(ListenerError.SocketClosed, e);
-				this.ClientDisconnected?.Invoke(client);
-				return;
-			}
-			catch(SocketException e)
-			{
-				this.ErrorOccurred(ListenerError.SocketError, e);
-				this.ClientDisconnected?.Invoke(client);
-				client.CloseSocket();
-				return;
-			}
-			catch(Exception e)
-			{
-				this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
-				this.ClientDisconnected?.Invoke(client);
-				client.CloseSocket();
-				return;
-			}
-			
-			// Detect client disconnect
-			if(bytesRead <= 0)
-			{
-				this.ClientDisconnected?.Invoke(client);
-				client.CloseSocket();
-				return;
-			}
-
-			try
-			{
-				client.Buffer.TryReceive(bytesRead);
-			}
-			catch(ProtocolViolationException e)
-			{
-				// Buffer corrupted. Disconnecting client
-				client.CloseSocket();
-				this.ClientDisconnected?.Invoke(client);
-				this.ErrorOccurred?.Invoke(ListenerError.BufferCorrupted, e);
-				return;
-			}
-
-			// Handle all packets in the buffer queue
-			while(client.Buffer.TryGetPacketBytes(out var packetBytes))
-			{
-				var packet = this.Model.Deserialize(packetBytes);
-				this.PacketReceived?.Invoke(packet, client);
-
-				if(this.Dispatcher is null) { continue; }
-				
-				if(this.DispatchAsync)
+				// Client disconnected while sending the packet
+				client.DisconnectedInternal += delegate(Client c)
 				{
-					_ = this.Dispatcher.DispatchAsync(packet, client);
-				}
-				else
+					c.CloseSocket();
+					this.ClientDisconnected?.Invoke(c);
+				};
+
+				var manualDisconnectToken = client.DisconnectToken;
+
+				while(!(stopToken.IsCancellationRequested || manualDisconnectToken.IsCancellationRequested))
 				{
-					this.Dispatcher.Dispatch(packet, client);
+					int bytesRead;
+
+					try
+					{
+						bytesRead = await client.Socket.ReceiveTask(client.Buffer.Data);
+					}
+					catch(ObjectDisposedException e)
+					{
+						this.ErrorOccurred?.Invoke(ListenerError.SocketClosed, e);
+						this.ClientDisconnected?.Invoke(client);
+						return;
+					}
+					catch(SocketException e)
+					{
+						this.ErrorOccurred(ListenerError.SocketError, e);
+						this.ClientDisconnected?.Invoke(client);
+						client.CloseSocket();
+						return;
+					}
+					catch(Exception e)
+					{
+						this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
+						this.ClientDisconnected?.Invoke(client);
+						client.CloseSocket();
+						return;
+					}
+
+					// Detect client disconnect
+					if(bytesRead <= 0)
+					{
+						this.ClientDisconnected?.Invoke(client);
+						client.CloseSocket();
+						return;
+					}
+
+					try
+					{
+						client.Buffer.TryReceive(bytesRead);
+					}
+					catch(ProtocolViolationException e)
+					{
+						// Buffer corrupted. Disconnecting client
+						client.CloseSocket();
+						this.ClientDisconnected?.Invoke(client);
+						this.ErrorOccurred?.Invoke(ListenerError.BufferCorrupted, e);
+						return;
+					}
+
+					var receivedFlag = false;
+
+					// Handle all packets in the buffer queue
+					while(client.Buffer.TryGetPacketBytes(out var packetBytes))
+					{
+						var packet = this.Model.Deserialize(packetBytes);
+						this.PacketReceived?.Invoke(packet, client);
+
+						if(this.Dispatcher is null)
+						{
+							continue;
+						}
+
+						if(this.DispatchAsync)
+						{
+							_ = this.Dispatcher.DispatchAsync(packet, client);
+						}
+						else
+						{
+							this.Dispatcher.Dispatch(packet, client);
+						}
+
+						receivedFlag = true;
+					}
+
+					if(receivedFlag)
+					{
+						client.LastDataReceive = DateTime.UtcNow; // TODO: set on every data receive
+					}
 				}
-			}
-			
-			this.BeginReceive(client);
+			}, stopToken);
 		}
 	}
 }
