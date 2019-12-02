@@ -222,14 +222,15 @@ namespace NetworkCore.Server
 						return;
 					}
 
-					var receivedFlag = false;
-
 					// Handle all packets in the buffer queue
 					while(client.Buffer.TryGetPacketBytes(out var packetBytes))
 					{
 						var packet = this.Model.Deserialize(packetBytes);
 						this.PacketReceived?.Invoke(packet, client);
 
+						// Update last data receive time
+						client.LastDataReceive = DateTime.UtcNow;
+						
 						if(this.Dispatcher is null)
 						{
 							continue;
@@ -243,13 +244,6 @@ namespace NetworkCore.Server
 						{
 							this.Dispatcher.Dispatch(packet, client);
 						}
-
-						receivedFlag = true;
-					}
-
-					if(receivedFlag)
-					{
-						client.LastDataReceive = DateTime.UtcNow; // TODO: set on every data receive
 					}
 				}
 			}, stopToken);
