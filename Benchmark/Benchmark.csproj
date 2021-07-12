@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>netcoreapp3.1</TargetFramework>
+		<IsPackable>false</IsPackable>
+		<Title>Banchmark</Title>
+		<Authors>rayleigh</Authors>
+		<Description>Banchmarking tool for NetworkCore library</Description>
+		<Copyright>Vladislav Pashaiev</Copyright>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="2.5.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\NetworkCore\NetworkCore.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Client" />
+	  <Folder Include="Server" />
+	</ItemGroup>
+
+</Project>

@@ -9,6 +9,8 @@ namespace NetworkCore.Data
 		private readonly Socket socket;
 
 		private readonly DataModel dataModel;
+
+		private bool disconnected;
 		
 		public delegate void SendErrorHandler(Packet packet, Exception e);
 
@@ -22,14 +24,13 @@ namespace NetworkCore.Data
 		{
 			this.socket = socket;
 			this.dataModel = dataModel;
+			this.disconnected = false;
 		}
 
 		public void Send(Packet packet, SendErrorHandler errorHandler = null)
 		{
-			if(!this.socket.Connected)
-			{
-				throw new InvalidOperationException("Socket must be connected, but it is not.");
-			}
+			// We know that socket is disconnected so skip all the packet send requests
+			if(this.disconnected) { return; }
 
 			if(packet is null)
 			{
@@ -37,7 +38,7 @@ namespace NetworkCore.Data
 			}
 
 			var bytes = this.dataModel.Serialize(packet);
-			bytes = BitConverter.GetBytes(bytes.Length).Concat(bytes).ToArray();
+			bytes = BitConverter.GetBytes(bytes.Length).Concat(bytes).ToArray(); // TODO: optimize
 
 			try
 			{
@@ -71,6 +72,14 @@ namespace NetworkCore.Data
 				this.SendError?.Invoke(packet, e);
 				errorHandler?.Invoke(packet, e);
 			}
+		}
+
+		/// <summary>
+		/// Notify the packet sender that socket is disconnected.
+		/// </summary>
+		internal void NotifyDisconnected()
+		{
+			this.disconnected = true;
 		}
 	}
 }

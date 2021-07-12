@@ -60,6 +60,8 @@ namespace NetworkCore.Server
 		/// Token that cancels on manual disconnect.
 		/// </summary>
 		internal CancellationToken DisconnectToken => this.disconnectTokenSource.Token;
+
+		private bool disconnected;
 		
 		internal Client(Socket socket, DataModel dataModel, ushort bufferSize)
 		{
@@ -69,14 +71,15 @@ namespace NetworkCore.Server
 			this.EndPoint = (IPEndPoint)this.Socket.RemoteEndPoint;
 			this.LastDataReceive = DateTime.UtcNow;
 			this.disconnectTokenSource = new CancellationTokenSource();
+			this.disconnected = false;
 
 			// Detect that client is disconnected while sending the packet
 			this.PacketSender.SendError += delegate
 			{
-				if(!this.Socket.Connected)
-				{
-					this.DisconnectedInternal?.Invoke(this);
-				}
+				if(this.Socket.Connected || this.disconnected) { return; }
+				
+				this.DisconnectedInternal?.Invoke(this);
+				this.NotifyDisconnected();
 			};
 		}
 
@@ -95,6 +98,8 @@ namespace NetworkCore.Server
 				await this.Socket.DisconnectTask(false).ConfigureAwait(false);
 			}
 			catch(ObjectDisposedException) { }
+			
+			this.NotifyDisconnected();
 		}
 
 		/// <summary>
@@ -109,6 +114,16 @@ namespace NetworkCore.Server
 			catch(ObjectDisposedException) { }
 
 			this.Socket.Close();
+			this.NotifyDisconnected();
+		}
+		
+		/// <summary>
+		/// Notify the client and packet sender that socket is disconnected.
+		/// </summary>
+		private void NotifyDisconnected()
+		{
+			this.disconnected = true;
+			this.PacketSender.NotifyDisconnected();
 		}
 	}
 }

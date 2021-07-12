@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using NetworkCore.Data;
 using NetworkCore.Extensions;
 
@@ -12,6 +13,7 @@ namespace NetworkCore.Client
 	/// <summary>
 	/// Connection to the server.
 	/// </summary>
+	[PublicAPI]
 	public class Connection : IDisposable
 	{
 		private IPEndPoint endPoint;
@@ -66,14 +68,18 @@ namespace NetworkCore.Client
 		/// </summary>
 		public event PacketHandler PacketReceived;
 
+		/// <summary>
+		/// Exception in one of the packet handlers.
+		/// </summary>
+		public event Action<Exception> HandlerException;
+		
 		#endregion
 		
 		public Connection()
 		{
 			this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
 			{
-				ExclusiveAddressUse = true,
-				NoDelay = this.NoDelay
+				ExclusiveAddressUse = true
 			};
 		}
 
@@ -118,9 +124,12 @@ namespace NetworkCore.Client
 				throw new InvalidOperationException("Binding to ip address and port is required to connect.");
 			}
 
+			this.socket.NoDelay = this.NoDelay;
+			
 			try
 			{
-				await this.socket.ConnectTask(this.endPoint).ConfigureAwait(false);
+				// await this.socket.ConnectTask(this.endPoint).ConfigureAwait(false);
+				await this.socket.ConnectAsync(this.endPoint).ConfigureAwait(false);
 			}
 			catch(Exception e) when (e is SocketException || e is InvalidOperationException)
 			{
@@ -149,7 +158,10 @@ namespace NetworkCore.Client
 
 					try
 					{
-						bytesRead = await this.socket.ReceiveTask(this.buffer.Data).ConfigureAwait(false);
+						// bytesRead = await this.socket.ReceiveTask(this.buffer.Data).ConfigureAwait(false);
+						bytesRead = await this.socket
+							.ReceiveAsync(new ArraySegment<byte>(this.buffer.Data), SocketFlags.None)
+							.ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException)
 					{
@@ -185,7 +197,7 @@ namespace NetworkCore.Client
 
 					while(this.buffer.TryGetPacketBytes(out var packetBytes))
 					{
-						var packet = this.Model.Deserialize(packetBytes);
+						var packet = this.Model.Deserialize(packetBytes); // TODO: handle 'failed to deserialize'
 						this.PacketReceived?.Invoke(packet);
 
 						if(this.Dispatcher is null) { continue; }
@@ -197,6 +209,95 @@ namespace NetworkCore.Client
 						else
 						{
 							this.Dispatcher.Dispatch(packet);
+						}
+					}
+
+					// TODO: change endReceive to internal cancellation token
+					if(stopToken.IsCancellationRequested || this.endReceive)
+					{
+						break;
+					}
+				}
+			}, stopToken);
+		}
+		
+		public Task ReceiveTask(CancellationToken stopToken = default)
+		{
+			if(!this.socket.Connected)
+			{
+				throw new InvalidOperationException("Cannot begin receiving packets because socket is not connected to the server.");
+			}
+
+			this.buffer = new ReceiveBuffer(this.ReceiveBufferSize);
+
+			return Task.Run(async () =>
+			{
+				while(true)
+				{
+					int bytesRead;
+
+					try
+					{
+						// bytesRead = await this.socket.ReceiveTask(this.buffer.Data).ConfigureAwait(false);
+						bytesRead = await this.socket
+							.ReceiveAsync(new ArraySegment<byte>(this.buffer.Data), SocketFlags.None)
+							.ConfigureAwait(false);
+					}
+					catch(ObjectDisposedException)
+					{
+						// Socket disposed, stop listening
+						return;
+					}
+					catch(SocketException e)
+					{
+						this.DataReceiveError?.Invoke(e);
+						await this.Disconnect().ConfigureAwait(false);
+						this.Disconnected?.Invoke();
+						return;
+					}
+
+					if(bytesRead <= 0)
+					{
+						await this.Disconnect().ConfigureAwait(false);
+						this.Disconnected?.Invoke();
+						break;
+					}
+					
+					try
+					{
+						this.buffer.TryReceive(bytesRead);
+					}
+					catch(ProtocolViolationException e)
+					{
+						this.DataReceiveError?.Invoke(e);
+						await this.Disconnect().ConfigureAwait(false);
+						this.Disconnected?.Invoke();
+						return;
+					}
+
+					var num = 0;
+					
+					while(this.buffer.TryGetPacketBytes(out var packetBytes))
+					{
+						var packet = this.Model.Deserialize(packetBytes); // TODO: handle 'failed to deserialize'
+						this.PacketReceived?.Invoke(packet);
+
+						if(this.Dispatcher is null) { continue; }
+
+						try
+						{
+							if(this.DispatchAsync)
+							{
+								_ = this.Dispatcher.DispatchAsync(packet);
+							}
+							else
+							{
+								this.Dispatcher.Dispatch(packet);
+							}
+						}
+						catch(Exception e)
+						{
+							this.HandlerException?.Invoke(e);
 						}
 					}
 

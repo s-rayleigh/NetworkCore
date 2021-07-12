@@ -30,5 +30,17 @@ namespace NetworkCore.Extensions
 				return await task;
 			}
 		}
+		
+		public static async void FireAndForget(this Task task)
+		{
+			try
+			{
+				await task;
+			}
+			catch
+			{
+				throw;
+			}
+		}
 	}
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -28,10 +29,10 @@ namespace NetworkCore.Server
 		/// Disable using of Nagle algorithm;
 		/// </summary>
 		public bool NoDelay { get; set; } = false;
-		
-		private IPEndPoint listeningEndPoint;
 
-		private Socket socket;
+		public EndPoint EndPoint => this.socket.LocalEndPoint;
+		
+		private readonly Socket socket;
 
 		#region Delegates
 
@@ -51,7 +52,7 @@ namespace NetworkCore.Server
 		/// <summary>
 		/// Client disconnected event.
 		/// </summary>
-		public event ClientHandler ClientDisconnected;
+		public event Action<Client, DisconnectType> ClientDisconnected;
 
 		/// <summary>
 		/// Packet received from client.
@@ -63,58 +64,48 @@ namespace NetworkCore.Server
 		/// </summary>
 		public event ErrorHandler ErrorOccurred;
 
+		public event Action<Exception> DispatcherException;
+		
 		#endregion
 
 		public Listener()
 		{
-			// TODO: implement
+			this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+			{
+				ExclusiveAddressUse = true
+			};
 		}
 
-		public Listener(IPEndPoint endPoint) : this()
-		{
-			this.listeningEndPoint = endPoint;
-		}
-		
+		public Listener(IPEndPoint endPoint) : this() => this.Bind(endPoint);
+
 		public Listener(string ip, ushort port) : this(Tools.BuildIpEndPoint(ip, port)) { }
 
 		public Listener Bind(IPEndPoint endPoint)
 		{
-			this.listeningEndPoint = endPoint;
+			this.socket.Bind(endPoint);
 			return this;
 		}
 		
-		public Listener Bind(string ip, ushort port)
-		{
-			this.Bind(Tools.BuildIpEndPoint(ip, port));
-			return this;
-		}
+		public Listener Bind(string ip, ushort port) => this.Bind(Tools.BuildIpEndPoint(ip, port));
 
 		// TODO: detailed description
 		public Task BeginListening(ushort queueLength, CancellationToken stopToken = default(CancellationToken))
 		{
-			if(!(this.socket is null))
-			{
-				throw new InvalidOperationException("Listening has already begun.");
-			}
-			
-			if(this.listeningEndPoint is null)
-			{
-				throw new InvalidOperationException("Binding to ip address and port is required to begin listening.");
-			}
-
 			// No model is defined, using default model
 			if(this.Model is null)
 			{
 				this.Model = new DataModel();
 			}
 
-			this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
-			{
-				ExclusiveAddressUse = true,
-				NoDelay = this.NoDelay
-			};
+			// this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+			// {
+			// 	ExclusiveAddressUse = true,
+			// 	NoDelay = this.NoDelay
+			// };
 
-			this.socket.Bind(this.listeningEndPoint);
+			// this.socket.Bind(this.listeningEndPoint);
+
+			this.socket.NoDelay = this.NoDelay;
 			this.socket.Listen(queueLength);
 
 			var acceptTask = Task.Run(async () =>
@@ -125,7 +116,8 @@ namespace NetworkCore.Server
 
 					try
 					{
-						clientSocket = await this.socket.AcceptTask().ConfigureAwait(false);
+						// clientSocket = await this.socket.AcceptTask().ConfigureAwait(false);
+						clientSocket = await this.socket.AcceptAsync().ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException)
 					{
@@ -144,15 +136,18 @@ namespace NetworkCore.Server
 
 					if(stopToken.IsCancellationRequested)
 					{
-						this.socket.Shutdown(SocketShutdown.Both);
-						this.socket.Close(1000);
 						break;
 					}
 				}
 			}, stopToken);
 
 			// We cannot cancel AcceptTask so end task immediately after cancel received
-			return Task.WhenAny(acceptTask, Task.Run(() => { stopToken.WaitHandle.WaitOne(); }));
+			return Task.WhenAny(acceptTask, Task.Run(async () =>
+			{
+				await Task.Delay(-1, stopToken).ConfigureAwait(false);
+				this.socket.Shutdown(SocketShutdown.Both);
+				this.socket.Close(1000);
+			}));
 		}
 
 		private void RunReceiveTask(Socket clientSocket, CancellationToken stopToken)
@@ -167,45 +162,54 @@ namespace NetworkCore.Server
 				client.DisconnectedInternal += delegate(Client c)
 				{
 					c.CloseSocket();
-					this.ClientDisconnected?.Invoke(c);
+					this.ClientDisconnected?.Invoke(c, DisconnectType.SendError);
 				};
 
 				var manualDisconnectToken = client.DisconnectToken;
-
+				
+				// Used for counting packets by type within one batch
+				var packetsBatchCount = new Dictionary<Type, ushort>();
+				
+				// Used for counting packets within one batch regardless type
+				ushort numInBatch = 0;
+				
 				while(!(stopToken.IsCancellationRequested || manualDisconnectToken.IsCancellationRequested))
 				{
 					int bytesRead;
 
 					try
 					{
-						bytesRead = await client.Socket.ReceiveTask(client.Buffer.Data).ConfigureAwait(false);
+						// bytesRead = await client.Socket.ReceiveTask(client.Buffer.Data).ConfigureAwait(false);
+						bytesRead = await client.Socket
+							.ReceiveAsync(new ArraySegment<byte>(client.Buffer.Data), SocketFlags.None)
+							.ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException e)
 					{
 						this.ErrorOccurred?.Invoke(ListenerError.SocketClosed, e);
-						this.ClientDisconnected?.Invoke(client);
+						this.ClientDisconnected?.Invoke(client, DisconnectType.ReceiveError);
 						return;
 					}
 					catch(SocketException e)
 					{
-						this.ErrorOccurred(ListenerError.SocketError, e);
-						this.ClientDisconnected?.Invoke(client);
 						client.CloseSocket();
+						this.ErrorOccurred(ListenerError.SocketError, e);
+						this.ClientDisconnected?.Invoke(client, DisconnectType.ReceiveError);
 						return;
 					}
 					catch(Exception e)
 					{
-						this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
-						this.ClientDisconnected?.Invoke(client);
 						client.CloseSocket();
+						this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
+						this.ClientDisconnected?.Invoke(client, DisconnectType.ReceiveError);
 						return;
 					}
 
 					// Detect client disconnect
 					if(bytesRead <= 0)
 					{
-						this.ClientDisconnected?.Invoke(client);
 						client.CloseSocket();
+						this.ClientDisconnected?.Invoke(client, DisconnectType.Normal);
 						return;
 					}
 
@@ -217,7 +221,7 @@ namespace NetworkCore.Server
 					{
 						// Buffer corrupted. Disconnecting client
 						client.CloseSocket();
-						this.ClientDisconnected?.Invoke(client);
+						this.ClientDisconnected?.Invoke(client, DisconnectType.BufferError);
 						this.ErrorOccurred?.Invoke(ListenerError.BufferCorrupted, e);
 						return;
 					}
@@ -225,26 +229,50 @@ namespace NetworkCore.Server
 					// Handle all packets in the buffer queue
 					while(client.Buffer.TryGetPacketBytes(out var packetBytes))
 					{
-						var packet = this.Model.Deserialize(packetBytes);
-						this.PacketReceived?.Invoke(packet, client);
+						var packet = this.Model.Deserialize(packetBytes); // TODO: catch deserialization exception
 
 						// Update last data receive time
 						client.LastDataReceive = DateTime.UtcNow;
 						
-						if(this.Dispatcher is null)
-						{
-							continue;
-						}
+						this.PacketReceived?.Invoke(packet, client);
 
-						if(this.DispatchAsync)
+						if(this.Dispatcher is null) { continue; }
+						
+						var packetType = packet.GetType();
+
+						ushort packetBatchNum;
+						
+						if(packetsBatchCount.ContainsKey(packetType))
 						{
-							_ = this.Dispatcher.DispatchAsync(packet, client);
+							packetBatchNum = ++packetsBatchCount[packet.GetType()];
 						}
 						else
 						{
-							this.Dispatcher.Dispatch(packet, client);
+							packetsBatchCount.Add(packetType, 0);
+							packetBatchNum = 0;
 						}
+
+						try
+						{
+							if(this.DispatchAsync)
+							{
+								this.Dispatcher.DispatchAsync(packet, client, numInBatch, packetBatchNum).FireAndForget();
+							}
+							else
+							{
+								this.Dispatcher.Dispatch(packet, client, numInBatch, packetBatchNum);
+							}
+						}
+						catch(Exception e)
+						{
+							this.DispatcherException?.Invoke(e);
+						}
+						
+						numInBatch++;
 					}
+					
+					packetsBatchCount.Clear();
+					numInBatch = 0;
 				}
 			}, stopToken);
 		}

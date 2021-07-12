@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using NetworkCore.Data;
 
 namespace NetworkCore
@@ -24,6 +24,7 @@ namespace NetworkCore
 		/// <param name="handler">Packet handler.</param>
 		/// <typeparam name="T">Type of the packet.</typeparam>
 		/// <exception cref="ArgumentException">If handler for the specified type of the packet is already registered.</exception>
+		[PublicAPI]
 		public void RegisterHandler<T>(PacketHandler<T> handler) where T : Packet
 		{
 			var type = typeof(T);
@@ -41,11 +42,11 @@ namespace NetworkCore
 		/// </summary>
 		/// <param name="packet">Packet to dispatch.</param>
 		/// <param name="state">State object with custom data that used in the handler.</param>
-		public void Dispatch(Packet packet, object state = null)
+		internal void Dispatch(Packet packet, object state = null, ushort batchNum = 0, ushort batchNumPerType = 0)
 		{
 			if(this.handlers.TryGetValue(packet.GetType(), out var handler))
 			{
-				handler.Handle(packet, state);
+				handler.Handle(packet, state, batchNum, batchNumPerType);
 			}
 		}
 
@@ -55,9 +56,9 @@ namespace NetworkCore
 		/// <param name="packet">Packet to dispatch.</param>
 		/// <param name="state">State object with custom data that used in the handler.</param>
 		/// <returns>Task.</returns>
-		public async Task DispatchAsync(Packet packet, object state = null)
+		internal async Task DispatchAsync(Packet packet, object state = null, ushort batchNum = 0, ushort batchNumPerType = 0)
 		{
-			await Task.Run(() => this.Dispatch(packet, state)).ConfigureAwait(false);
+			await Task.Run(() => this.Dispatch(packet, state, batchNum, batchNumPerType)).ConfigureAwait(false);
 		}
 	}
 }

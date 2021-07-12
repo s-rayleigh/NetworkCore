@@ -8,13 +8,13 @@ namespace NetworkCore
 
 		public event ReceiveEventHandler PacketReceived;
 		
-		public void Handle(Packet packet, object state)
+		public void Handle(Packet packet, object state, ushort batchNum, ushort batchNumPerType)
 		{
 			var cast = packet as T;
-			this.HandlePacket(cast, state);
+			this.HandlePacket(cast, state, batchNum, batchNumPerType);
 			this.PacketReceived?.Invoke(cast, state);
 		}
 
-		protected virtual void HandlePacket(T packet, object state) { }
+		protected virtual void HandlePacket(T packet, object state, ushort batchNum, ushort batchNumPerType) { }
 	}
 }

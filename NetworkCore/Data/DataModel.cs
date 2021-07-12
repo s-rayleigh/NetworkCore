@@ -73,6 +73,8 @@ namespace NetworkCore.Data
 		protected readonly TypeContainer packetRoot;
 
 		protected readonly TypeContainer containerRoot;
+
+		protected readonly List<TypeContainer> structTypes;
 		
 		protected readonly List<Type> addedTypes;
 		
@@ -80,6 +82,7 @@ namespace NetworkCore.Data
 		{
 			this.packetRoot = new TypeContainer(typeof(Packet), this);
 			this.containerRoot = new TypeContainer(typeof(Container), this);
+			this.structTypes = new List<TypeContainer>();
 			this.addedTypes = new List<Type>();
 		}
 		
@@ -96,8 +99,14 @@ namespace NetworkCore.Data
 		public TypeContainer AddPacket<T>() where T : Packet, new() => this.packetRoot.Add<T>();
 
 		public TypeContainer AddContainer<T>() where T : Container, new() => this.containerRoot.Add<T>();
-		
-		
+
+		public TypeContainer AddStruct<T>() where T : struct
+		{
+			var typeContainer = new TypeContainer(typeof(T), this);
+			this.structTypes.Add(typeContainer);
+			return typeContainer;
+		}
+
 		public TypeContainer Add(Type type)
 		{
 			if(type.IsSubclassOf(typeof(Packet)))
@@ -118,6 +127,12 @@ namespace NetworkCore.Data
 			this.typeModel = TypeModel.Create();
 			FillTypeModel(this.typeModel, this.containerRoot);
 			FillTypeModel(this.typeModel, this.packetRoot);
+
+			foreach(var typeContainer in this.structTypes)
+			{
+				FillTypeModel(this.typeModel, typeContainer);
+			}
+			
 			this.typeModel.CompileInPlace();
 		}
 
@@ -134,7 +149,7 @@ namespace NetworkCore.Data
 			var fields = container.type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly).Select(field => field.Name).ToArray();
 			var mt = model.Add(container.type, false).Add(fields);
 			var i = fields.Length;
-
+			
 			foreach(var subtypeContainer in container.subtypes)
 			{
 				FillTypeModel(model, subtypeContainer);
@@ -158,6 +173,7 @@ namespace NetworkCore.Data
 
 		public Packet Deserialize(byte[] bytes)
 		{
+			// TODO: get rid of this check
 			if(this.typeModel is null)
 			{
 				this.Build();

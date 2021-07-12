@@ -6,6 +6,6 @@
     <Description>Logging library</Description>
     <Copyright>Vladislav Pashaiev 2019</Copyright>
     <PackageTags>logging, logs</PackageTags>
-    <TargetFrameworks>net45;netcoreapp2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netcoreapp2.1</TargetFrameworks>
   </PropertyGroup>
 </Project>

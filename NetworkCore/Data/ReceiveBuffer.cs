@@ -55,7 +55,7 @@ namespace NetworkCore.Data
 		/// Try to receive packet and add it to the internal queue.
 		/// </summary>
 		/// <param name="count">Received bytes count.</param>
-		/// <exception cref="InvalidOperationException">If buffer is corrupted.</exception>
+		/// <exception cref="ProtocolViolationException">If buffer is corrupted.</exception>
 		public void TryReceive(int count)
 		{
 			const int intSize = sizeof(int);
@@ -100,11 +100,7 @@ namespace NetworkCore.Data
 			{
 				var packetBytes = new byte[this.packetSize];
 
-				for(var i = intSize; i < totalLen; i++)
-				{
-					packetBytes[i - intSize] = this.bytes[i];
-				}
-				
+				this.bytes.CopyTo(intSize, packetBytes, 0, this.packetSize);
 				this.bytes.RemoveRange(0, totalLen);
 				this.packetSizeKnown = false;
 				
