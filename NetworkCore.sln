@@ -7,10 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logging", "Log\Logging.cspr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkCore", "NetworkCore\NetworkCore.csproj", "{68D585D1-5C9F-4FB5-A87B-BB217973ED9C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{B62FBF97-EA5A-4E33-8B51-C9538022978B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmark", "Benchmark\Benchmark.csproj", "{5C7A4CED-C36F-4911-89A7-A9A91B9D3204}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,14 +21,6 @@ Global
 		{68D585D1-5C9F-4FB5-A87B-BB217973ED9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{68D585D1-5C9F-4FB5-A87B-BB217973ED9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68D585D1-5C9F-4FB5-A87B-BB217973ED9C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B62FBF97-EA5A-4E33-8B51-C9538022978B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B62FBF97-EA5A-4E33-8B51-C9538022978B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B62FBF97-EA5A-4E33-8B51-C9538022978B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B62FBF97-EA5A-4E33-8B51-C9538022978B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5C7A4CED-C36F-4911-89A7-A9A91B9D3204}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5C7A4CED-C36F-4911-89A7-A9A91B9D3204}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5C7A4CED-C36F-4911-89A7-A9A91B9D3204}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5C7A4CED-C36F-4911-89A7-A9A91B9D3204}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
