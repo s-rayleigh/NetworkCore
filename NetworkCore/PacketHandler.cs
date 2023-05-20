@@ -1,7 +1,9 @@
+using JetBrains.Annotations;
 using NetworkCore.Data;
 
 namespace NetworkCore
 {
+	[PublicAPI]
 	public abstract class PacketHandler<T> : IHandler where T : Packet
 	{
 		public delegate void ReceiveEventHandler(T packet, object state);
@@ -10,7 +12,7 @@ namespace NetworkCore
 		
 		public void Handle(Packet packet, object state, ushort batchNum, ushort batchNumPerType)
 		{
-			var cast = packet as T;
+			var cast = (T)packet;
 			this.HandlePacket(cast, state, batchNum, batchNumPerType);
 			this.PacketReceived?.Invoke(cast, state);
 		}

@@ -60,10 +60,7 @@ namespace NetworkCore.Data
 		{
 			const int intSize = sizeof(int);
 
-			if(count > 0)
-			{
-				this.bytes.AddRange(this.Data.Take(count));
-			}
+			if(count > 0) this.bytes.AddRange(this.Data.Take(count));
 
 			if(!this.packetSizeKnown)
 			{
@@ -72,17 +69,18 @@ namespace NetworkCore.Data
 					// TODO: ToArray -> separate array for length prefix
 					this.packetSize = BitConverter.ToInt32(this.bytes.Take(intSize).ToArray(), 0);
 				
-					// Do not process zero length packets
-					if(this.packetSize == 0)
+					// Do not process zero length packets.
+					if(this.packetSize is 0)
 					{
 						this.bytes.RemoveRange(0, intSize);
 						return;
 					}
 
-					// We need to disconnect socket because data buffer is corrupted
+					// We need to disconnect socket because data buffer is corrupted.
 					if(this.packetSize < 0)
 					{
-						throw new ProtocolViolationException($"Obtained packet size is lower than zero and is {this.packetSize}.");
+						throw new ProtocolViolationException(
+							$"Obtained packet size is lower than zero and is {this.packetSize}.");
 					}
 					
 					this.packetSizeKnown = true;
@@ -106,10 +104,7 @@ namespace NetworkCore.Data
 				
 				this.queue.Enqueue(packetBytes);
 				
-				if(this.bytes.Count > 0)
-				{
-					this.TryReceive(0);
-				}
+				if(this.bytes.Count > 0) this.TryReceive(0);
 			}
 		}
 

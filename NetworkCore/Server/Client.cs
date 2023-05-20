@@ -3,18 +3,19 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using NetworkCore.Data;
 using NetworkCore.Extensions;
 
 namespace NetworkCore.Server
 {
 	/// <summary>
-	/// Client.
+	/// Client representation on the server.
 	/// </summary>
 	public class Client
 	{
 		/// <summary>
-		/// Packet buffer of the client.
+		/// Receive buffer for the data obtained from the client.
 		/// </summary>
 		internal ReceiveBuffer Buffer { get; }
 		
@@ -57,7 +58,7 @@ namespace NetworkCore.Server
 		private readonly CancellationTokenSource disconnectTokenSource;
 
 		/// <summary>
-		/// Token that cancels on manual disconnect.
+		/// Cancellation token that cancels on manual disconnect.
 		/// </summary>
 		internal CancellationToken DisconnectToken => this.disconnectTokenSource.Token;
 
@@ -76,7 +77,7 @@ namespace NetworkCore.Server
 			// Detect that client is disconnected while sending the packet
 			this.PacketSender.SendError += delegate
 			{
-				if(this.Socket.Connected || this.disconnected) { return; }
+				if(this.Socket.Connected || this.disconnected) return;
 				
 				this.DisconnectedInternal?.Invoke(this);
 				this.NotifyDisconnected();
@@ -88,6 +89,7 @@ namespace NetworkCore.Server
 			this.disconnectTokenSource.Dispose();
 		}
 
+		[PublicAPI]
 		public async Task Disconnect()
 		{
 			this.disconnectTokenSource.Cancel();

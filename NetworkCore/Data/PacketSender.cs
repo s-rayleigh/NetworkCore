@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Sockets;
+using JetBrains.Annotations;
 
 namespace NetworkCore.Data
 {
@@ -27,10 +28,10 @@ namespace NetworkCore.Data
 			this.disconnected = false;
 		}
 
+		[PublicAPI]
 		public void Send(Packet packet, SendErrorHandler errorHandler = null)
 		{
-			// We know that socket is disconnected so skip all the packet send requests
-			if(this.disconnected) { return; }
+			if(this.disconnected) return;
 
 			if(packet is null)
 			{

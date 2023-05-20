@@ -10,6 +10,9 @@ using NetworkCore.Extensions;
 
 namespace NetworkCore.Server
 {
+	/// <summary>
+	/// Connection listener on the server.
+	/// </summary>
 	[PublicAPI]
 	public class Listener
 	{
@@ -96,14 +99,11 @@ namespace NetworkCore.Server
 		public Listener Bind(string ip, ushort port) => this.Bind(Tools.BuildIpEndPoint(ip, port));
 
 		// TODO: detailed description
-		public Task BeginListening(ushort queueLength, CancellationToken stopToken = default(CancellationToken))
+		public Task BeginListening(ushort queueLength, CancellationToken stopToken = default)
 		{
-			// No model is defined, using default model
-			if(this.Model is null)
-			{
-				this.Model = new DataModel();
-			}
-
+			// Create empty data model in case if no model is set.
+			if(this.Model is null) this.Model = new DataModel();
+			
 			this.socket.Listen(queueLength);
 
 			var acceptTask = Task.Run(async () =>
@@ -114,7 +114,6 @@ namespace NetworkCore.Server
 
 					try
 					{
-						// clientSocket = await this.socket.AcceptTask().ConfigureAwait(false);
 						clientSocket = await this.socket.AcceptAsync().ConfigureAwait(false);
 					}
 					catch(ObjectDisposedException)
@@ -234,7 +233,7 @@ namespace NetworkCore.Server
 						
 						this.PacketReceived?.Invoke(packet, client);
 
-						if(this.Dispatcher is null) { continue; }
+						if(this.Dispatcher is null) continue;
 						
 						var packetType = packet.GetType();
 
@@ -254,7 +253,8 @@ namespace NetworkCore.Server
 						{
 							if(this.DispatchAsync)
 							{
-								this.Dispatcher.DispatchAsync(packet, client, numInBatch, packetBatchNum).FireAndForget();
+								this.Dispatcher.DispatchAsync(packet, client, numInBatch, packetBatchNum)
+									.FireAndForget();
 							}
 							else
 							{

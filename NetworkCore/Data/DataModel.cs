@@ -145,8 +145,9 @@ namespace NetworkCore.Data
 
 		private static void FillTypeModel(RuntimeTypeModel model, TypeContainer container)
 		{
-//			var fields = container.type.GetFields().Select(field => field.Name).ToArray();
-			var fields = container.type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly).Select(field => field.Name).ToArray();
+			var fields = container.type
+				.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+				.Select(field => field.Name).ToArray();
 			var mt = model.Add(container.type, false).Add(fields);
 			var i = fields.Length;
 			
@@ -159,13 +160,11 @@ namespace NetworkCore.Data
 
 		public byte[] Serialize(Packet packet)
 		{
-			if(this.typeModel is null)
-			{
-				this.Build();
-			}
+			if(this.typeModel is null) this.Build();
 			
 			using(var ms = new MemoryStream())
 			{
+				// ReSharper disable once PossibleNullReferenceException
 				this.typeModel.Serialize(ms, packet);
 				return ms.ToArray();
 			}
@@ -174,13 +173,11 @@ namespace NetworkCore.Data
 		public Packet Deserialize(byte[] bytes)
 		{
 			// TODO: get rid of this check
-			if(this.typeModel is null)
-			{
-				this.Build();
-			}
-			
+			if(this.typeModel is null) this.Build();
+
 			using(var ms = new MemoryStream(bytes))
 			{
+				// ReSharper disable once PossibleNullReferenceException
 				return (Packet)this.typeModel.Deserialize(ms, null, typeof(Packet));
 			}
 		}

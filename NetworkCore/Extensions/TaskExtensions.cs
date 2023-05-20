@@ -9,7 +9,8 @@ namespace NetworkCore.Extensions
 	/// </summary>
 	public static class TaskExtensions
 	{
-		public static async Task<TResult> TimeoutAfter<TResult>(this Task<TResult> task, TimeSpan timeout, CancellationToken cancelToken = default(CancellationToken))
+		public static async Task<TResult> TimeoutAfter<TResult>(this Task<TResult> task, TimeSpan timeout,
+			CancellationToken cancelToken = default)
 		{
 			using(var cancelTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancelToken))
 			{
@@ -17,16 +18,16 @@ namespace NetworkCore.Extensions
 				
 				if(await Task.WhenAny(task, delayTask) != task)
 				{
-					// Throw exception is canceled
+					// Throw exception is canceled.
 					await delayTask;
 					
 					throw new TimeoutException();
 				}
 				
-				// Cancel the delay task
+				// Cancel the delay task.
 				cancelTokenSource.Cancel();
 				
-				// Very important in order to propagate exceptions
+				// Very important in order to propagate exceptions.
 				return await task;
 			}
 		}
