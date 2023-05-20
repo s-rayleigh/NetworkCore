@@ -4,11 +4,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using NetworkCore.Data;
 using NetworkCore.Extensions;
 
 namespace NetworkCore.Server
 {
+	[PublicAPI]
 	public class Listener
 	{
 		/// <summary>
@@ -26,9 +28,14 @@ namespace NetworkCore.Server
 		public ushort ReceiveBufferSize { get; set; } = 1024;
 		
 		/// <summary>
-		/// Disable using of Nagle algorithm;
+		/// Set to true to disable the use of Nagle algorithm, which will increase packet flooding but reduce send
+		/// latency. The default is false.
 		/// </summary>
-		public bool NoDelay { get; set; } = false;
+		public bool NoDelay
+		{
+			get => this.socket.NoDelay;
+			set => this.socket.NoDelay = value;
+		}
 
 		public EndPoint EndPoint => this.socket.LocalEndPoint;
 		
@@ -97,15 +104,6 @@ namespace NetworkCore.Server
 				this.Model = new DataModel();
 			}
 
-			// this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
-			// {
-			// 	ExclusiveAddressUse = true,
-			// 	NoDelay = this.NoDelay
-			// };
-
-			// this.socket.Bind(this.listeningEndPoint);
-
-			this.socket.NoDelay = this.NoDelay;
 			this.socket.Listen(queueLength);
 
 			var acceptTask = Task.Run(async () =>

@@ -23,7 +23,7 @@ namespace NetworkCore.Client
 		private ReceiveBuffer buffer;
 
 		private bool endReceive;
-		
+
 		public PacketDispatcher Dispatcher { get; set; }
 
 		public bool DispatchAsync { get; set; } = true;
@@ -35,9 +35,14 @@ namespace NetworkCore.Client
 		public ushort ReceiveBufferSize { get; set; } = 1024;
 		
 		/// <summary>
-		/// Disable using of Nagle algorithm;
+		/// Set to true to disable the use of Nagle algorithm, which will increase packet flooding but reduce send
+		/// latency. The default is false.
 		/// </summary>
-		public bool NoDelay { get; set; } = false;
+		public bool NoDelay
+		{
+			get => this.socket.NoDelay;
+			set => this.socket.NoDelay = value;
+		}
 
 		#region Delegates
 		
@@ -124,8 +129,6 @@ namespace NetworkCore.Client
 				throw new InvalidOperationException("Binding to ip address and port is required to connect.");
 			}
 
-			this.socket.NoDelay = this.NoDelay;
-			
 			try
 			{
 				// await this.socket.ConnectTask(this.endPoint).ConfigureAwait(false);
@@ -312,9 +315,9 @@ namespace NetworkCore.Client
 
 		public async Task Disconnect()
 		{
-			if(!this.socket.Connected) { return; }
+			if(!this.socket.Connected) return;
 
-			this.endReceive = true; // TODO: replace by using of cancellation token
+			this.endReceive = true; // TODO: use cancellation token instead.
 			
 			try
 			{
@@ -322,12 +325,11 @@ namespace NetworkCore.Client
 				await this.socket.DisconnectTask(false).ConfigureAwait(false); // TODO: reuse
 			}
 			catch(ObjectDisposedException) { }
-
 		}
 
 		public void Dispose()
 		{
-			if(this.socket is null) { return; }
+			if(this.socket is null) return;
 
 			try
 			{
