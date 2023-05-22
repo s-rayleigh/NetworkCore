@@ -2,11 +2,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Title>Network Core</Title>
-        <Authors>rayleigh</Authors>
-        <Description>Network interaction library</Description>
-        <Copyright>2020 Vladislav Pashaiev</Copyright>
-        <PackageTags>network, framework</PackageTags>
+        <Description>Library for network communications and client-server applications.</Description>
+        <PackageTags>network;server;packets</PackageTags>
+        <PackageProjectUrl>https://github.com/s-rayleigh/NetworkCore</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/s-rayleigh/NetworkCore</RepositoryUrl>
+        
+        <Version>0.1.0</Version>
         <TargetFramework>netstandard2.0</TargetFramework>
+        
+        <Authors>Vladyslav Pashaiev</Authors>
+        <Copyright>2019-2023 Vladyslav Pashaiev</Copyright>
     </PropertyGroup>
 
     <ItemGroup>
