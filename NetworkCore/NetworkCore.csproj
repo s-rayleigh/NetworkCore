@@ -12,6 +12,7 @@
         
         <Version>0.1.0</Version>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         
         <Authors>Vladyslav Pashaiev</Authors>
         <Copyright>2019-2023 Vladyslav Pashaiev</Copyright>
