@@ -24,13 +24,13 @@ namespace NetworkCore.Client
 
 		private bool endReceive;
 
-		public PacketDispatcher Dispatcher { get; set; }
+		public MessageDispatcher Dispatcher { get; set; }
 
 		public bool DispatchAsync { get; set; } = true;
 		
 		public DataModel Model { get; set; }
 
-		public PacketSender Sender { get; private set; }
+		public MessageSender Sender { get; private set; }
 
 		public ushort ReceiveBufferSize { get; set; } = 1024;
 		
@@ -48,7 +48,7 @@ namespace NetworkCore.Client
 		
 		public delegate void ErrorHandler(Exception e);
 		
-		public delegate void PacketHandler(Packet packet);
+		public delegate void MessageHandler(Message message);
 
 		#endregion
 
@@ -69,12 +69,12 @@ namespace NetworkCore.Client
 		public event ErrorHandler DataReceiveError;
 
 		/// <summary>
-		/// Packet received event.
+		/// Fired when a message is received from the server.
 		/// </summary>
-		public event PacketHandler PacketReceived;
+		public event MessageHandler MessageReceived;
 
 		/// <summary>
-		/// Exception in one of the packet handlers.
+		/// Fired when an exception is occured in one of the message handlers.
 		/// </summary>
 		public event Action<Exception> HandlerException;
 		
@@ -140,15 +140,16 @@ namespace NetworkCore.Client
 				return;
 			}
 			
-			this.Sender = new PacketSender(this.socket, this.Model);
+			this.Sender = new MessageSender(this.socket, this.Model);
 			this.Connected?.Invoke();
 		}
 
-		public void BeginReceive(CancellationToken stopToken = default(CancellationToken))
+		public void BeginReceive(CancellationToken stopToken = default)
 		{
 			if(!this.socket.Connected)
 			{
-				throw new InvalidOperationException("Cannot begin receiving packets because socket is not connected to the server.");
+				throw new InvalidOperationException(
+					"Cannot begin receiving messages because the socket is not connected to the server.");
 			}
 
 			this.buffer = new ReceiveBuffer(this.ReceiveBufferSize);
@@ -198,20 +199,20 @@ namespace NetworkCore.Client
 						return;
 					}
 
-					while(this.buffer.TryGetPacketBytes(out var packetBytes))
+					while(this.buffer.TryGetMsgBytes(out var messageBytes))
 					{
-						var packet = this.Model.Deserialize(packetBytes); // TODO: handle 'failed to deserialize'
-						this.PacketReceived?.Invoke(packet);
+						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'
+						this.MessageReceived?.Invoke(message);
 
 						if(this.Dispatcher is null) { continue; }
 					
 						if(this.DispatchAsync)
 						{
-							_ = this.Dispatcher.DispatchAsync(packet);
+							_ = this.Dispatcher.DispatchAsync(message);
 						}
 						else
 						{
-							this.Dispatcher.Dispatch(packet);
+							this.Dispatcher.Dispatch(message);
 						}
 					}
 
@@ -228,7 +229,7 @@ namespace NetworkCore.Client
 		{
 			if(!this.socket.Connected)
 			{
-				throw new InvalidOperationException("Cannot begin receiving packets because socket is not connected to the server.");
+				throw new InvalidOperationException("Cannot begin receiving message because socket is not connected to the server.");
 			}
 
 			this.buffer = new ReceiveBuffer(this.ReceiveBufferSize);
@@ -280,10 +281,10 @@ namespace NetworkCore.Client
 
 					var num = 0;
 					
-					while(this.buffer.TryGetPacketBytes(out var packetBytes))
+					while(this.buffer.TryGetMsgBytes(out var messageBytes))
 					{
-						var packet = this.Model.Deserialize(packetBytes); // TODO: handle 'failed to deserialize'
-						this.PacketReceived?.Invoke(packet);
+						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'
+						this.MessageReceived?.Invoke(message);
 
 						if(this.Dispatcher is null) { continue; }
 
@@ -291,11 +292,11 @@ namespace NetworkCore.Client
 						{
 							if(this.DispatchAsync)
 							{
-								_ = this.Dispatcher.DispatchAsync(packet);
+								_ = this.Dispatcher.DispatchAsync(message);
 							}
 							else
 							{
-								this.Dispatcher.Dispatch(packet);
+								this.Dispatcher.Dispatch(message);
 							}
 						}
 						catch(Exception e)

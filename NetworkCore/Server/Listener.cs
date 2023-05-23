@@ -17,9 +17,9 @@ namespace NetworkCore.Server
 	public class Listener
 	{
 		/// <summary>
-		/// Packet dispatcher to dispatch incoming packets.
+		/// Message dispatcher used to direct incoming messages to corresponding handler.
 		/// </summary>
-		public PacketDispatcher Dispatcher { get; set; }
+		public MessageDispatcher Dispatcher { get; set; }
 
 		public bool DispatchAsync { get; set; } = true;
 		
@@ -46,7 +46,7 @@ namespace NetworkCore.Server
 
 		#region Delegates
 
-		public delegate void PacketHandler(Packet packet, Client client);
+		public delegate void MessageHandler(Message message, Client client);
 
 		public delegate void ErrorHandler(ListenerError errorType, Exception exception);
 
@@ -65,12 +65,12 @@ namespace NetworkCore.Server
 		public event Action<Client, DisconnectType> ClientDisconnected;
 
 		/// <summary>
-		/// Packet received from client.
+		/// Fired when a message is received from the client.
 		/// </summary>
-		public event PacketHandler PacketReceived;
-
+		public event MessageHandler MessageReceived;
+ 
 		/// <summary>
-		/// Some internal error occured.
+		/// Fired when internal error occurs.
 		/// </summary>
 		public event ErrorHandler ErrorOccurred;
 
@@ -155,7 +155,7 @@ namespace NetworkCore.Server
 
 				this.ClientConnected?.Invoke(client);
 
-				// Client disconnected while sending the packet
+				// Handle client disconnect while sending a message.
 				client.DisconnectedInternal += delegate(Client c)
 				{
 					c.CloseSocket();
@@ -164,10 +164,10 @@ namespace NetworkCore.Server
 
 				var manualDisconnectToken = client.DisconnectToken;
 				
-				// Used for counting packets by type within one batch
-				var packetsBatchCount = new Dictionary<Type, ushort>();
+				// Used for counting messages by type within one batch.
+				var messagesBatchCount = new Dictionary<Type, ushort>();
 				
-				// Used for counting packets within one batch regardless type
+				// Used for counting messages within one batch regardless type.
 				ushort numInBatch = 0;
 				
 				while(!(stopToken.IsCancellationRequested || manualDisconnectToken.IsCancellationRequested))
@@ -223,42 +223,42 @@ namespace NetworkCore.Server
 						return;
 					}
 
-					// Handle all packets in the buffer queue
-					while(client.Buffer.TryGetPacketBytes(out var packetBytes))
+					// Handle messages in the queue.
+					while(client.Buffer.TryGetMsgBytes(out var messageBytes))
 					{
-						var packet = this.Model.Deserialize(packetBytes); // TODO: catch deserialization exception
+						var message = this.Model.Deserialize(messageBytes); // TODO: catch deserialization exception
 
 						// Update last data receive time
 						client.LastDataReceive = DateTime.UtcNow;
 						
-						this.PacketReceived?.Invoke(packet, client);
+						this.MessageReceived?.Invoke(message, client);
 
 						if(this.Dispatcher is null) continue;
 						
-						var packetType = packet.GetType();
+						var messageType = message.GetType();
 
-						ushort packetBatchNum;
+						ushort messageBatchNum;
 						
-						if(packetsBatchCount.ContainsKey(packetType))
+						if(messagesBatchCount.ContainsKey(messageType))
 						{
-							packetBatchNum = ++packetsBatchCount[packet.GetType()];
+							messageBatchNum = ++messagesBatchCount[message.GetType()];
 						}
 						else
 						{
-							packetsBatchCount.Add(packetType, 0);
-							packetBatchNum = 0;
+							messagesBatchCount.Add(messageType, 0);
+							messageBatchNum = 0;
 						}
 
 						try
 						{
 							if(this.DispatchAsync)
 							{
-								this.Dispatcher.DispatchAsync(packet, client, numInBatch, packetBatchNum)
+								this.Dispatcher.DispatchAsync(message, client, numInBatch, messageBatchNum)
 									.FireAndForget();
 							}
 							else
 							{
-								this.Dispatcher.Dispatch(packet, client, numInBatch, packetBatchNum);
+								this.Dispatcher.Dispatch(message, client, numInBatch, messageBatchNum);
 							}
 						}
 						catch(Exception e)
@@ -269,7 +269,7 @@ namespace NetworkCore.Server
 						numInBatch++;
 					}
 					
-					packetsBatchCount.Clear();
+					messagesBatchCount.Clear();
 					numInBatch = 0;
 				}
 			}, stopToken);

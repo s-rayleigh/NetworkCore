@@ -6,7 +6,7 @@ using System.Net;
 namespace NetworkCore.Data
 {
 	/// <summary>
-	/// Buffer for receiving packets.
+	/// Buffer for receiving messages.
 	/// </summary>
 	internal class ReceiveBuffer
 	{
@@ -26,17 +26,17 @@ namespace NetworkCore.Data
 		private readonly List<byte> bytes;
 
 		/// <summary>
-		/// Known size of the packet.
+		/// Known size of the message.
 		/// </summary>
-		private int packetSize;
+		private int messageSize;
 
 		/// <summary>
-		/// Is the packet size known.
+		/// Is the message size known.
 		/// </summary>
-		private bool packetSizeKnown;
+		private bool messageSizeKnown;
 
 		/// <summary>
-		/// Packet bytes queue.
+		/// Queue of the serialized messages.
 		/// </summary>
 		private readonly Queue<byte[]> queue;
 		
@@ -52,7 +52,7 @@ namespace NetworkCore.Data
 		}
 		
 		/// <summary>
-		/// Try to receive packet and add it to the internal queue.
+		/// Try to receive message and add it to the internal queue.
 		/// </summary>
 		/// <param name="count">Received bytes count.</param>
 		/// <exception cref="ProtocolViolationException">If buffer is corrupted.</exception>
@@ -62,28 +62,27 @@ namespace NetworkCore.Data
 
 			if(count > 0) this.bytes.AddRange(this.Data.Take(count));
 
-			if(!this.packetSizeKnown)
+			if(!this.messageSizeKnown)
 			{
 				if(this.bytes.Count >= intSize)
 				{
 					// TODO: ToArray -> separate array for length prefix
-					this.packetSize = BitConverter.ToInt32(this.bytes.Take(intSize).ToArray(), 0);
+					this.messageSize = BitConverter.ToInt32(this.bytes.Take(intSize).ToArray(), 0);
 				
-					// Do not process zero length packets.
-					if(this.packetSize is 0)
+					// Do not process zero length messages.
+					if(this.messageSize is 0)
 					{
 						this.bytes.RemoveRange(0, intSize);
 						return;
 					}
 
 					// We need to disconnect socket because data buffer is corrupted.
-					if(this.packetSize < 0)
+					if(this.messageSize < 0)
 					{
-						throw new ProtocolViolationException(
-							$"Obtained packet size is lower than zero and is {this.packetSize}.");
+						throw new ProtocolViolationException("Obtained message size is less than zero.");
 					}
 					
-					this.packetSizeKnown = true;
+					this.messageSizeKnown = true;
 				}
 				else
 				{
@@ -92,36 +91,36 @@ namespace NetworkCore.Data
 				}
 			}
 
-			var totalLen = this.packetSize + intSize;
+			var totalLen = this.messageSize + intSize;
 
 			if(this.bytes.Count >= totalLen)
 			{
-				var packetBytes = new byte[this.packetSize];
+				var messageBytes = new byte[this.messageSize];
 
-				this.bytes.CopyTo(intSize, packetBytes, 0, this.packetSize);
+				this.bytes.CopyTo(intSize, messageBytes, 0, this.messageSize);
 				this.bytes.RemoveRange(0, totalLen);
-				this.packetSizeKnown = false;
+				this.messageSizeKnown = false;
 				
-				this.queue.Enqueue(packetBytes);
+				this.queue.Enqueue(messageBytes);
 				
 				if(this.bytes.Count > 0) this.TryReceive(0);
 			}
 		}
 
 		/// <summary>
-		/// Try to obtain packet bytes from the queue.
+		/// Try to obtain a message bytes from the queue.
 		/// </summary>
-		/// <param name="packetBytes">Packet bytes if there any.</param>
-		/// <returns>True if there any packet.</returns>
-		public bool TryGetPacketBytes(out byte[] packetBytes)
+		/// <param name="messageBytes">Message bytes if there any.</param>
+		/// <returns>True if there any message.</returns>
+		public bool TryGetMsgBytes(out byte[] messageBytes)
 		{
 			if(this.queue.Count > 0)
 			{
-				packetBytes = this.queue.Dequeue();
+				messageBytes = this.queue.Dequeue();
 				return true;
 			}
 
-			packetBytes = null;
+			messageBytes = null;
 			return false;
 		}
 	}

@@ -4,6 +4,6 @@ namespace NetworkCore
 {
 	public interface IHandler
 	{
-		void Handle(Packet packet, object state, ushort batchNum, ushort batchNumPerType);
+		void Handle(Message message, object state, ushort batchNum, ushort batchNumPerType);
 	}
 }

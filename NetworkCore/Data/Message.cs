@@ -3,10 +3,10 @@ using JetBrains.Annotations;
 namespace NetworkCore.Data
 {
 	/// <summary>
-	/// Base class for the data packet.
+	/// Base class for messages.
 	/// </summary>
 	[PublicAPI]
-	public abstract class Packet
+	public abstract class Message
 	{
 		
 	}

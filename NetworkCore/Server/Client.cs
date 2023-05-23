@@ -40,9 +40,9 @@ namespace NetworkCore.Server
 		public int Port => this.EndPoint.Port;
 		
 		/// <summary>
-		/// Packet sender.
+		/// Message sender used to send messages to the client.
 		/// </summary>
-		public PacketSender PacketSender { get; }
+		public MessageSender MessageSender { get; }
 
 		/// <summary>
 		/// <para>Last data receive time (UTC).</para>
@@ -68,14 +68,14 @@ namespace NetworkCore.Server
 		{
 			this.Socket = socket;
 			this.Buffer = new ReceiveBuffer(bufferSize);
-			this.PacketSender = new PacketSender(socket, dataModel);
+			this.MessageSender = new MessageSender(socket, dataModel);
 			this.EndPoint = (IPEndPoint)this.Socket.RemoteEndPoint;
 			this.LastDataReceive = DateTime.UtcNow;
 			this.disconnectTokenSource = new CancellationTokenSource();
 			this.disconnected = false;
 
-			// Detect that client is disconnected while sending the packet
-			this.PacketSender.SendError += delegate
+			// Handle client disconnect while sending a message.
+			this.MessageSender.SendError += delegate
 			{
 				if(this.Socket.Connected || this.disconnected) return;
 				
@@ -120,12 +120,12 @@ namespace NetworkCore.Server
 		}
 		
 		/// <summary>
-		/// Notify the client and packet sender that socket is disconnected.
+		/// Notify the client and message sender that socket is disconnected.
 		/// </summary>
 		private void NotifyDisconnected()
 		{
 			this.disconnected = true;
-			this.PacketSender.NotifyDisconnected();
+			this.MessageSender.NotifyDisconnected();
 		}
 	}
 }

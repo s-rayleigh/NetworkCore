@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 
 namespace NetworkCore.Data
 {
-	public sealed class PacketSender
+	public sealed class MessageSender
 	{
 		private readonly Socket socket;
 
@@ -13,15 +13,15 @@ namespace NetworkCore.Data
 
 		private bool disconnected;
 		
-		public delegate void SendErrorHandler(Packet packet, Exception e);
+		public delegate void SendErrorHandler(Message message, Exception e);
 
-		public delegate void SendHandler(Packet packet);
+		public delegate void SendHandler(Message message);
 
 		public event SendErrorHandler SendError;
 
-		public event SendHandler PacketSent;
+		public event SendHandler MessageSent;
 		
-		public PacketSender(Socket socket, DataModel dataModel)
+		public MessageSender(Socket socket, DataModel dataModel)
 		{
 			this.socket = socket;
 			this.dataModel = dataModel;
@@ -29,16 +29,13 @@ namespace NetworkCore.Data
 		}
 
 		[PublicAPI]
-		public void Send(Packet packet, SendErrorHandler errorHandler = null)
+		public void Send(Message message, SendErrorHandler errorHandler = null)
 		{
 			if(this.disconnected) return;
 
-			if(packet is null)
-			{
-				throw new ArgumentException("Packet should not be null.", nameof(packet));
-			}
+			if(message is null) throw new ArgumentNullException(nameof(message));
 
-			var bytes = this.dataModel.Serialize(packet);
+			var bytes = this.dataModel.Serialize(message);
 			bytes = BitConverter.GetBytes(bytes.Length).Concat(bytes).ToArray(); // TODO: optimize
 
 			try
@@ -52,31 +49,31 @@ namespace NetworkCore.Data
 
 						if(bytesNum == bytes.Length)
 						{
-							this.PacketSent?.Invoke(packet);
+							this.MessageSent?.Invoke(message);
 						}
 						else
 						{
 							var ex = new Exception("Number of the bytes sent do not equal to the buffer length.");
-							this.SendError?.Invoke(packet, ex);
-							errorHandler?.Invoke(packet, ex);
+							this.SendError?.Invoke(message, ex);
+							errorHandler?.Invoke(message, ex);
 						}
 					}
 					catch(Exception e)
 					{
-						this.SendError?.Invoke(packet, e);
-						errorHandler?.Invoke(packet, e);
+						this.SendError?.Invoke(message, e);
+						errorHandler?.Invoke(message, e);
 					}
 				}, null);
 			}
 			catch(Exception e)
 			{
-				this.SendError?.Invoke(packet, e);
-				errorHandler?.Invoke(packet, e);
+				this.SendError?.Invoke(message, e);
+				errorHandler?.Invoke(message, e);
 			}
 		}
 
 		/// <summary>
-		/// Notify the packet sender that socket is disconnected.
+		/// Notify that socket is disconnected.
 		/// </summary>
 		internal void NotifyDisconnected()
 		{

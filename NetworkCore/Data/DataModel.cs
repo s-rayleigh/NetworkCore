@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using JetBrains.Annotations;
 using ProtoBuf.Meta;
 
 namespace NetworkCore.Data
 {
 	/// <summary>
-	/// Model for serializing and deserializing the data packets.
+	/// Data model for serializing and deserializing messages.
 	/// </summary>
 	public class DataModel
 	{
@@ -67,10 +68,7 @@ namespace NetworkCore.Data
 
 		private RuntimeTypeModel typeModel;
 
-		/// <summary>
-		/// Added packet types tree.
-		/// </summary>
-		protected readonly TypeContainer packetRoot;
+		protected readonly TypeContainer messageRoot;
 
 		protected readonly TypeContainer containerRoot;
 
@@ -80,7 +78,7 @@ namespace NetworkCore.Data
 		
 		public DataModel()
 		{
-			this.packetRoot = new TypeContainer(typeof(Packet), this);
+			this.messageRoot = new TypeContainer(typeof(Message), this);
 			this.containerRoot = new TypeContainer(typeof(Container), this);
 			this.structTypes = new List<TypeContainer>();
 			this.addedTypes = new List<Type>();
@@ -96,10 +94,13 @@ namespace NetworkCore.Data
 			this.addedTypes.Add(type);
 		}
 		
-		public TypeContainer AddPacket<T>() where T : Packet, new() => this.packetRoot.Add<T>();
+		[PublicAPI]
+		public TypeContainer AddMessage<T>() where T : Message, new() => this.messageRoot.Add<T>();
 
+		[PublicAPI]
 		public TypeContainer AddContainer<T>() where T : Container, new() => this.containerRoot.Add<T>();
 
+		[PublicAPI]
 		public TypeContainer AddStruct<T>() where T : struct
 		{
 			var typeContainer = new TypeContainer(typeof(T), this);
@@ -109,9 +110,9 @@ namespace NetworkCore.Data
 
 		public TypeContainer Add(Type type)
 		{
-			if(type.IsSubclassOf(typeof(Packet)))
+			if(type.IsSubclassOf(typeof(Message)))
 			{
-				return this.packetRoot.Add(type);
+				return this.messageRoot.Add(type);
 			}
 			
 			if(type.IsSubclassOf(typeof(Container)))
@@ -119,14 +120,14 @@ namespace NetworkCore.Data
 				return this.containerRoot.Add(type);
 			}
 			
-			throw new ArgumentException($"Argument '{nameof(type)}' should derive from class '{typeof(Packet)}' or '{typeof(Container)}'.", nameof(type));
+			throw new ArgumentException($"Argument '{nameof(type)}' should derive from class '{typeof(Message)}' or '{typeof(Container)}'.", nameof(type));
 		}
 
 		public void Build()
 		{
 			this.typeModel = TypeModel.Create();
 			FillTypeModel(this.typeModel, this.containerRoot);
-			FillTypeModel(this.typeModel, this.packetRoot);
+			FillTypeModel(this.typeModel, this.messageRoot);
 
 			foreach(var typeContainer in this.structTypes)
 			{
@@ -138,7 +139,7 @@ namespace NetworkCore.Data
 
 		public void Clear()
 		{
-			this.packetRoot.ClearSubtypes();
+			this.messageRoot.ClearSubtypes();
 			this.containerRoot.ClearSubtypes();
 			this.typeModel = null;
 		}
@@ -158,19 +159,19 @@ namespace NetworkCore.Data
 			}
 		}
 
-		public byte[] Serialize(Packet packet)
+		public byte[] Serialize(Message message)
 		{
 			if(this.typeModel is null) this.Build();
 			
 			using(var ms = new MemoryStream())
 			{
 				// ReSharper disable once PossibleNullReferenceException
-				this.typeModel.Serialize(ms, packet);
+				this.typeModel.Serialize(ms, message);
 				return ms.ToArray();
 			}
 		}
 
-		public Packet Deserialize(byte[] bytes)
+		public Message Deserialize(byte[] bytes)
 		{
 			// TODO: get rid of this check
 			if(this.typeModel is null) this.Build();
@@ -178,7 +179,7 @@ namespace NetworkCore.Data
 			using(var ms = new MemoryStream(bytes))
 			{
 				// ReSharper disable once PossibleNullReferenceException
-				return (Packet)this.typeModel.Deserialize(ms, null, typeof(Packet));
+				return (Message)this.typeModel.Deserialize(ms, null, typeof(Message));
 			}
 		}
 	}
