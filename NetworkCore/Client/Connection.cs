@@ -279,8 +279,6 @@ namespace NetworkCore.Client
 						return;
 					}
 
-					var num = 0;
-					
 					while(this.buffer.TryGetMsgBytes(out var messageBytes))
 					{
 						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'

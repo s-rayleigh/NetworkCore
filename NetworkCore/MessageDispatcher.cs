@@ -45,15 +45,9 @@ namespace NetworkCore
 		/// </summary>
 		/// <param name="message">Message to dispatch.</param>
 		/// <param name="state">State object with custom data that used in the handler.</param>
-		/// <param name="batchNum">Batch number of the message.</param>
-		/// <param name="batchNumPerType">Number of the message in its batch.</param>
-		internal void Dispatch(Message message, object state = null, ushort batchNum = 0, ushort batchNumPerType = 0)
+		internal void Dispatch(Message message, object state = null)
 		{
-			// TODO: remove batchNum and batchNumPerType or define some "event args" struct with this parameters.
-			if(this.handlers.TryGetValue(message.GetType(), out var handler))
-			{
-				handler.Handle(message, state, batchNum, batchNumPerType);
-			}
+			if(this.handlers.TryGetValue(message.GetType(), out var handler)) handler.Handle(message, state);
 		}
 
 		/// <summary>
@@ -61,13 +55,10 @@ namespace NetworkCore
 		/// </summary>
 		/// <param name="message">Message to dispatch.</param>
 		/// <param name="state">State object with custom data that used in the handler.</param>
-		/// <param name="batchNum">Batch number of the message.</param>
-		/// <param name="batchNumPerType">Number of the message in its batch.</param>
 		/// <returns>Task.</returns>
-		internal async Task DispatchAsync(Message message, object state = null, ushort batchNum = 0,
-			ushort batchNumPerType = 0)
+		internal async Task DispatchAsync(Message message, object state = null)
 		{
-			await Task.Run(() => this.Dispatch(message, state, batchNum, batchNumPerType)).ConfigureAwait(false);
+			await Task.Run(() => this.Dispatch(message, state)).ConfigureAwait(false);
 		}
 	}
 }

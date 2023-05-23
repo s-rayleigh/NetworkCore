@@ -10,13 +10,13 @@ namespace NetworkCore
 
 		public event ReceiveEventHandler MessageReceived;
 		
-		public void Handle(Message message, object state, ushort batchNum, ushort batchNumPerType)
+		public void Handle(Message message, object state)
 		{
 			var cast = (T)message;
-			this.HandleMessage(cast, state, batchNum, batchNumPerType);
+			this.HandleMessage(cast, state);
 			this.MessageReceived?.Invoke(cast, state);
 		}
 
-		protected virtual void HandleMessage(T message, object state, ushort batchNum, ushort batchNumPerType) { }
+		protected virtual void HandleMessage(T message, object state) { }
 	}
 }

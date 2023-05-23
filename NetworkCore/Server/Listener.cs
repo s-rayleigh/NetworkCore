@@ -163,13 +163,7 @@ namespace NetworkCore.Server
 				};
 
 				var manualDisconnectToken = client.DisconnectToken;
-				
-				// Used for counting messages by type within one batch.
-				var messagesBatchCount = new Dictionary<Type, ushort>();
-				
-				// Used for counting messages within one batch regardless type.
-				ushort numInBatch = 0;
-				
+
 				while(!(stopToken.IsCancellationRequested || manualDisconnectToken.IsCancellationRequested))
 				{
 					int bytesRead;
@@ -234,43 +228,24 @@ namespace NetworkCore.Server
 						this.MessageReceived?.Invoke(message, client);
 
 						if(this.Dispatcher is null) continue;
-						
-						var messageType = message.GetType();
-
-						ushort messageBatchNum;
-						
-						if(messagesBatchCount.ContainsKey(messageType))
-						{
-							messageBatchNum = ++messagesBatchCount[message.GetType()];
-						}
-						else
-						{
-							messagesBatchCount.Add(messageType, 0);
-							messageBatchNum = 0;
-						}
 
 						try
 						{
 							if(this.DispatchAsync)
 							{
-								this.Dispatcher.DispatchAsync(message, client, numInBatch, messageBatchNum)
+								this.Dispatcher.DispatchAsync(message, client)
 									.FireAndForget();
 							}
 							else
 							{
-								this.Dispatcher.Dispatch(message, client, numInBatch, messageBatchNum);
+								this.Dispatcher.Dispatch(message, client);
 							}
 						}
 						catch(Exception e)
 						{
 							this.DispatcherException?.Invoke(e);
 						}
-						
-						numInBatch++;
 					}
-					
-					messagesBatchCount.Clear();
-					numInBatch = 0;
 				}
 			}, stopToken);
 		}
