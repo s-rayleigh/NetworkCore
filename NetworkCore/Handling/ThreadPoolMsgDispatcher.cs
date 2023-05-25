@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using NetworkCore.Data;
 
-namespace NetworkCore
+namespace NetworkCore.Handling
 {
 	public class ThreadPoolMsgDispatcher<TSender> : MsgAsyncHandlersDispatcher<TSender>
 	{

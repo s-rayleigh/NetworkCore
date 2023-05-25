@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using JetBrains.Annotations;
 using NetworkCore.Data;
 using NetworkCore.Extensions;
+using NetworkCore.Handling;
 
 namespace NetworkCore.Client
 {

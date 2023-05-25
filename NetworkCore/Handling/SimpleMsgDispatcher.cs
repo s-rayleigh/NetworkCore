@@ -1,7 +1,7 @@
 using System;
 using NetworkCore.Data;
 
-namespace NetworkCore
+namespace NetworkCore.Handling
 {
 	public sealed class SimpleMsgDispatcher<TSender> : MsgHandlersDispatcher<TSender>
 	{

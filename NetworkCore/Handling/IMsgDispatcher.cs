@@ -1,6 +1,6 @@
 using NetworkCore.Data;
 
-namespace NetworkCore
+namespace NetworkCore.Handling
 {
 	public interface IMsgDispatcher<TSender>
 	{

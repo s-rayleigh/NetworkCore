@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using NetworkCore.Data;
 
-namespace NetworkCore
+namespace NetworkCore.Handling
 {
 	/// <summary>
 	/// Dispatches passed messages to the corresponding registered handlers.
