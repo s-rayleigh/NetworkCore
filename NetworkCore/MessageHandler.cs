@@ -1,22 +1,21 @@
+using System;
 using JetBrains.Annotations;
 using NetworkCore.Data;
 
 namespace NetworkCore
 {
 	[PublicAPI]
-	public abstract class MessageHandler<T> : IHandler where T : Message
+	public abstract class MessageHandler<TMessage, TSender> : IMsgHandler<TSender> where TMessage : Message
 	{
-		public delegate void ReceiveEventHandler(T message, object state);
-
-		public event ReceiveEventHandler MessageReceived;
+		public event Action<TMessage, TSender> MessageReceived;
 		
-		public void Handle(Message message, object state)
+		public void Handle(Message message, TSender sender)
 		{
-			var cast = (T)message;
-			this.HandleMessage(cast, state);
-			this.MessageReceived?.Invoke(cast, state);
+			var cast = (TMessage)message;
+			this.HandleMessage(cast, sender);
+			this.MessageReceived?.Invoke(cast, sender);
 		}
 
-		protected virtual void HandleMessage(T message, object state) { }
+		protected virtual void HandleMessage(TMessage message, TSender sender) { }
 	}
 }

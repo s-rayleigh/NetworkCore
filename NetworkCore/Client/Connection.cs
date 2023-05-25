@@ -24,10 +24,8 @@ namespace NetworkCore.Client
 
 		private bool endReceive;
 
-		public MessageDispatcher Dispatcher { get; set; }
+		public IMsgDispatcher<MessageSender> MsgDispatcher { get; set; }
 
-		public bool DispatchAsync { get; set; } = true;
-		
 		public DataModel Model { get; set; }
 
 		public MessageSender Sender { get; private set; }
@@ -203,16 +201,14 @@ namespace NetworkCore.Client
 					{
 						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'
 						this.MessageReceived?.Invoke(message);
-
-						if(this.Dispatcher is null) { continue; }
-					
-						if(this.DispatchAsync)
+						
+						try
 						{
-							_ = this.Dispatcher.DispatchAsync(message);
+							this.MsgDispatcher?.DispatchMessage(message, this.Sender);
 						}
-						else
+						catch(Exception e)
 						{
-							this.Dispatcher.Dispatch(message);
+							this.HandlerException?.Invoke(e);
 						}
 					}
 
@@ -284,18 +280,9 @@ namespace NetworkCore.Client
 						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'
 						this.MessageReceived?.Invoke(message);
 
-						if(this.Dispatcher is null) { continue; }
-
 						try
 						{
-							if(this.DispatchAsync)
-							{
-								_ = this.Dispatcher.DispatchAsync(message);
-							}
-							else
-							{
-								this.Dispatcher.Dispatch(message);
-							}
+							this.MsgDispatcher?.DispatchMessage(message, this.Sender);
 						}
 						catch(Exception e)
 						{

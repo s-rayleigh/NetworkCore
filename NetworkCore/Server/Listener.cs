@@ -1,12 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using NetworkCore.Data;
-using NetworkCore.Extensions;
 
 namespace NetworkCore.Server
 {
@@ -19,10 +17,8 @@ namespace NetworkCore.Server
 		/// <summary>
 		/// Message dispatcher used to direct incoming messages to corresponding handler.
 		/// </summary>
-		public MessageDispatcher Dispatcher { get; set; }
+		public IMsgDispatcher<Client> MsgDispatcher { get; set; }
 
-		public bool DispatchAsync { get; set; } = true;
-		
 		/// <summary>
 		/// Data model for this listener.
 		/// </summary>
@@ -227,19 +223,11 @@ namespace NetworkCore.Server
 						
 						this.MessageReceived?.Invoke(message, client);
 
-						if(this.Dispatcher is null) continue;
+						if(this.MsgDispatcher is null) continue;
 
 						try
 						{
-							if(this.DispatchAsync)
-							{
-								this.Dispatcher.DispatchAsync(message, client)
-									.FireAndForget();
-							}
-							else
-							{
-								this.Dispatcher.Dispatch(message, client);
-							}
+							this.MsgDispatcher.DispatchMessage(message, client);
 						}
 						catch(Exception e)
 						{
