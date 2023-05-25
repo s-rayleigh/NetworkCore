@@ -16,6 +16,7 @@
         
         <Authors>Vladyslav Pashaiev</Authors>
         <Copyright>2019-2023 Vladyslav Pashaiev</Copyright>
+        <LangVersion>latestmajor</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>
