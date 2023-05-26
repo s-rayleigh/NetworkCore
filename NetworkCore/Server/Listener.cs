@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -15,11 +17,13 @@ namespace NetworkCore.Server
 	[PublicAPI]
 	public class Listener
 	{
+		private readonly Socket socket;
+		
 		/// <summary>
-		/// Message dispatcher used to direct incoming messages to corresponding handler.
+		/// Message dispatchers used to route incoming messages.
 		/// </summary>
-		public IMsgDispatcher<Client> MsgDispatcher { get; set; }
-
+		private IMsgDispatcher<Client>[] msgDispatchers;
+		
 		/// <summary>
 		/// Data model for this listener.
 		/// </summary>
@@ -38,8 +42,6 @@ namespace NetworkCore.Server
 		}
 
 		public EndPoint EndPoint => this.socket.LocalEndPoint;
-		
-		private readonly Socket socket;
 
 		#region Delegates
 
@@ -71,21 +73,28 @@ namespace NetworkCore.Server
 		/// </summary>
 		public event ErrorHandler ErrorOccurred;
 
+		/// <summary>
+		/// Fired when an exception is occured in one of the message dispatchers.
+		/// </summary>
 		public event Action<Exception> DispatcherException;
 		
 		#endregion
 
-		public Listener()
+		public Listener(IEnumerable<IMsgDispatcher<Client>> dispatchers = null)
 		{
 			this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
 			{
 				ExclusiveAddressUse = true
 			};
+			
+			this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher<Client>>();
 		}
 
-		public Listener(IPEndPoint endPoint) : this() => this.Bind(endPoint);
+		public Listener(IPEndPoint endPoint, IEnumerable<IMsgDispatcher<Client>> dispatchers = null)
+			: this(dispatchers) => this.Bind(endPoint);
 
-		public Listener(string ip, ushort port) : this(Tools.BuildIpEndPoint(ip, port)) { }
+		public Listener(string ip, ushort port, IEnumerable<IMsgDispatcher<Client>> dispatchers = null) 
+			: this(Tools.BuildIpEndPoint(ip, port), dispatchers) { }
 
 		public Listener Bind(IPEndPoint endPoint)
 		{
@@ -224,15 +233,16 @@ namespace NetworkCore.Server
 						
 						this.MessageReceived?.Invoke(message, client);
 
-						if(this.MsgDispatcher is null) continue;
-
-						try
+						for(var i = 0; i < this.msgDispatchers.Length; i++)
 						{
-							this.MsgDispatcher.DispatchMessage(message, client);
-						}
-						catch(Exception e)
-						{
-							this.DispatcherException?.Invoke(e);
+							try
+							{
+								this.msgDispatchers[i]?.DispatchMessage(message, client);
+							}
+							catch(Exception e)
+							{
+								this.DispatcherException?.Invoke(e);
+							}
 						}
 					}
 				}

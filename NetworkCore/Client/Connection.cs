@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -10,7 +12,6 @@ using NetworkCore.Handling;
 
 namespace NetworkCore.Client
 {
-	// TODO: implement IDisposable
 	/// <summary>
 	/// Connection to the server.
 	/// </summary>
@@ -25,7 +26,10 @@ namespace NetworkCore.Client
 
 		private bool endReceive;
 
-		public IMsgDispatcher<MessageSender> MsgDispatcher { get; set; }
+		/// <summary>
+		/// Message dispatchers used to route incoming messages.
+		/// </summary>
+		private IMsgDispatcher<MessageSender>[] msgDispatchers;
 
 		public DataModel Model { get; set; }
 
@@ -73,23 +77,27 @@ namespace NetworkCore.Client
 		public event MessageHandler MessageReceived;
 
 		/// <summary>
-		/// Fired when an exception is occured in one of the message handlers.
+		/// Fired when an exception is occured in one of the message dispatchers.
 		/// </summary>
-		public event Action<Exception> HandlerException;
+		public event Action<Exception> DispatcherException;
 		
 		#endregion
 		
-		public Connection()
+		public Connection(IEnumerable<IMsgDispatcher<MessageSender>> dispatchers = null)
 		{
 			this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
 			{
 				ExclusiveAddressUse = true
 			};
+
+			this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher<MessageSender>>();
 		}
 
-		public Connection(string ip, ushort port) : this(Tools.BuildIpEndPoint(ip, port)) { }
+		public Connection(string ip, ushort port, IEnumerable<IMsgDispatcher<MessageSender>> dispatchers = null) 
+			: this(Tools.BuildIpEndPoint(ip, port), dispatchers) { }
 		
-		public Connection(IPEndPoint endPoint) : this()
+		public Connection(IPEndPoint endPoint, IEnumerable<IMsgDispatcher<MessageSender>> dispatchers = null) 
+			: this(dispatchers)
 		{
 			this.endPoint = endPoint;
 		}
@@ -203,13 +211,16 @@ namespace NetworkCore.Client
 						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'
 						this.MessageReceived?.Invoke(message);
 						
-						try
+						for(var i = 0; i < this.msgDispatchers.Length; i++)
 						{
-							this.MsgDispatcher?.DispatchMessage(message, this.Sender);
-						}
-						catch(Exception e)
-						{
-							this.HandlerException?.Invoke(e);
+							try
+							{
+								this.msgDispatchers[i]?.DispatchMessage(message, this.Sender);
+							}
+							catch(Exception e)
+							{
+								this.DispatcherException?.Invoke(e);
+							}
 						}
 					}
 
@@ -281,13 +292,16 @@ namespace NetworkCore.Client
 						var message = this.Model.Deserialize(messageBytes); // TODO: handle 'failed to deserialize'
 						this.MessageReceived?.Invoke(message);
 
-						try
+						for(var i = 0; i < this.msgDispatchers.Length; i++)
 						{
-							this.MsgDispatcher?.DispatchMessage(message, this.Sender);
-						}
-						catch(Exception e)
-						{
-							this.HandlerException?.Invoke(e);
+							try
+							{
+								this.msgDispatchers[i]?.DispatchMessage(message, this.Sender);
+							}
+							catch(Exception e)
+							{
+								this.DispatcherException?.Invoke(e);
+							}
 						}
 					}
 
