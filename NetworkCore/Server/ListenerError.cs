@@ -1,25 +1,24 @@
-namespace NetworkCore.Server
+namespace NetworkCore.Server;
+
+public enum ListenerError
 {
-	public enum ListenerError
-	{
-		/// <summary>
-		/// Unknown error.
-		/// </summary>
-		Unknown,
+	/// <summary>
+	/// Unknown error.
+	/// </summary>
+	Unknown,
 		
-		/// <summary>
-		/// Socket was closed.
-		/// </summary>
-		SocketClosed,
+	/// <summary>
+	/// Socket was closed.
+	/// </summary>
+	SocketClosed,
 		
-		/// <summary>
-		/// Some error has occurred in socket.
-		/// </summary>
-		SocketError,
+	/// <summary>
+	/// Some error has occurred in socket.
+	/// </summary>
+	SocketError,
 		
-		/// <summary>
-		/// Buffer has corrupted data.
-		/// </summary>
-		BufferCorrupted
-	}
+	/// <summary>
+	/// Buffer has corrupted data.
+	/// </summary>
+	BufferCorrupted
 }

@@ -1,4 +1,3 @@
-namespace NetworkCore.Server
-{
-	public delegate void ClientHandler(Client client);
-}
+namespace NetworkCore.Server;
+
+public delegate void ClientHandler(Client client);

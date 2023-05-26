@@ -1,10 +1,9 @@
-namespace NetworkCore
+namespace NetworkCore;
+
+public enum DisconnectType
 {
-	public enum DisconnectType
-	{
-		Normal,
-		SendError,
-		ReceiveError,
-		BufferError
-	}
+	Normal,
+	SendError,
+	ReceiveError,
+	BufferError
 }

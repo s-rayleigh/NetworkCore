@@ -1,9 +1,8 @@
 using NetworkCore.Data;
 
-namespace NetworkCore.Handling
+namespace NetworkCore.Handling;
+
+public interface IMsgHandler<TSender>
 {
-	public interface IMsgHandler<TSender>
-	{
-		void Handle(Message message, TSender sender);
-	}
+	void Handle(Message message, TSender sender);
 }
