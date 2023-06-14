@@ -2,7 +2,7 @@ using NetworkCore.Data;
 
 namespace NetworkCore.Handling;
 
-public interface IMsgHandler<TSender>
+public interface IMsgHandler
 {
-	void Handle(Message message, TSender sender);
+	void Handle(Message message, Peer peer);
 }

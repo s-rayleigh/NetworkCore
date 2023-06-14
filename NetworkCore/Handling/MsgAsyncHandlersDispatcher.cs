@@ -4,21 +4,21 @@ using NetworkCore.Data;
 
 namespace NetworkCore.Handling;
 
-public abstract class MsgAsyncHandlersDispatcher<TSender> : MsgHandlersDispatcher<TSender>
+public abstract class MsgAsyncHandlersDispatcher : MsgHandlersDispatcher
 {
-	public void RegisterAsyncHandler<T>(IMsgAsyncHandler<TSender> handler) where T : Message =>
+	public void RegisterAsyncHandler<T>(IMsgAsyncHandler handler) where T : Message =>
 		this.RegisterHandler(typeof(T), handler);
 
-	protected override void HandleMessageInternal(object handler, Message message, TSender sender)
+	protected override void HandleMessageInternal(object handler, Message message, Peer peer)
 	{
-		if(handler is IMsgAsyncHandler<TSender> asyncHandler)
+		if(handler is IMsgAsyncHandler asyncHandler)
 		{
-			this.HandleMsgAsync(asyncHandler.HandleAsync, message, sender);
+			this.HandleMsgAsync(asyncHandler.HandleAsync, message, peer);
 			return;
 		}
 			
-		base.HandleMessageInternal(handler, message, sender);
+		base.HandleMessageInternal(handler, message, peer);
 	}
 
-	protected abstract void HandleMsgAsync(Func<Message, TSender, Task> callback, Message message, TSender sender);
+	protected abstract void HandleMsgAsync(Func<Message, Peer, Task> callback, Message message, Peer peer);
 }

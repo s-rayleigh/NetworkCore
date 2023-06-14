@@ -22,7 +22,7 @@ public class Listener
 	/// <summary>
 	/// Message dispatchers used to route incoming messages.
 	/// </summary>
-	private IMsgDispatcher<Peer>[] msgDispatchers;
+	private IMsgDispatcher[] msgDispatchers;
 		
 	/// <summary>
 	/// Data model for this listener.
@@ -77,20 +77,20 @@ public class Listener
 		
 	#endregion
 
-	public Listener(IEnumerable<IMsgDispatcher<Peer>> dispatchers = null)
+	public Listener(IEnumerable<IMsgDispatcher> dispatchers = null)
 	{
 		this.socket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
 		{
 			ExclusiveAddressUse = true
 		};
 		
-		this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher<Peer>>();
+		this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher>();
 	}
 
-	public Listener(IPEndPoint endPoint, IEnumerable<IMsgDispatcher<Peer>> dispatchers = null) : this(dispatchers) =>
+	public Listener(IPEndPoint endPoint, IEnumerable<IMsgDispatcher> dispatchers = null) : this(dispatchers) =>
 		this.Bind(endPoint);
 
-	public Listener(string ip, ushort port, IEnumerable<IMsgDispatcher<Peer>> dispatchers = null) 
+	public Listener(string ip, ushort port, IEnumerable<IMsgDispatcher> dispatchers = null) 
 		: this(Tools.BuildIpEndPoint(ip, port), dispatchers) { }
 
 	public Listener Bind(IPEndPoint endPoint)

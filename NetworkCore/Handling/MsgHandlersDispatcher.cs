@@ -7,7 +7,7 @@ namespace NetworkCore.Handling;
 /// <summary>
 /// Dispatches passed messages to the corresponding registered handlers.
 /// </summary>
-public abstract class MsgHandlersDispatcher<TSender> : IMsgDispatcher<TSender>
+public abstract class MsgHandlersDispatcher : IMsgDispatcher
 {
 	private readonly ConcurrentDictionary<Type, object> handlers;
 
@@ -21,7 +21,7 @@ public abstract class MsgHandlersDispatcher<TSender> : IMsgDispatcher<TSender>
 	/// <exception cref="ArgumentException">
 	/// If handler is already registered for the specified message type.
 	/// </exception>
-	public void RegisterHandler<T>(IMsgHandler<TSender> handler) where T : Message =>
+	public void RegisterHandler<T>(IMsgHandler handler) where T : Message =>
 		this.RegisterHandler(typeof(T), handler);
 	
 	protected void RegisterHandler(Type messageType, object handler)
@@ -46,15 +46,15 @@ public abstract class MsgHandlersDispatcher<TSender> : IMsgDispatcher<TSender>
 	/// Dispatches a message to the handler if there is suitable handler registered.
 	/// </summary>
 	/// <param name="message">Message to dispatch.</param>
-	/// <param name="sender">Object that represents the sender of the message.</param>
-	public void DispatchMessage(Message message, TSender sender)
+	/// <param name="peer">A peer that represents the sender of the message.</param>
+	public void DispatchMessage(Message message, Peer peer)
 	{
 		if(!this.handlers.TryGetValue(message.GetType(), out var handler)) return;
-		this.HandleMessageInternal(handler, message, sender);
+		this.HandleMessageInternal(handler, message, peer);
 	}
 
-	protected virtual void HandleMessageInternal(object handler, Message message, TSender sender) =>
-		this.HandleMsg(((IMsgHandler<TSender>)handler).Handle, message, sender);
+	protected virtual void HandleMessageInternal(object handler, Message message, Peer peer) =>
+		this.HandleMsg(((IMsgHandler)handler).Handle, message, peer);
 
-	protected abstract void HandleMsg(Action<Message, TSender> callback, Message message, TSender sender);
+	protected abstract void HandleMsg(Action<Message, Peer> callback, Message message, Peer peer);
 }

@@ -23,7 +23,7 @@ public class Connection
 	/// <summary>
 	/// Message dispatchers used to route incoming messages.
 	/// </summary>
-	private IMsgDispatcher<Peer>[] msgDispatchers;
+	private IMsgDispatcher[] msgDispatchers;
 
 	public DataModel Model { get; set; }
 
@@ -72,20 +72,20 @@ public class Connection
 	
 	#endregion
 	
-	public Connection(IEnumerable<IMsgDispatcher<Peer>> dispatchers = null)
+	public Connection(IEnumerable<IMsgDispatcher> dispatchers = null)
 	{
 		this.socket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
 		{
 			ExclusiveAddressUse = true
 		};
 
-		this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher<Peer>>();
+		this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher>();
 	}
 
-	public Connection(string ip, ushort port, IEnumerable<IMsgDispatcher<Peer>> dispatchers = null) 
+	public Connection(string ip, ushort port, IEnumerable<IMsgDispatcher> dispatchers = null) 
 		: this(Tools.BuildIpEndPoint(ip, port), dispatchers) { }
 
-	public Connection(IPEndPoint endPoint, IEnumerable<IMsgDispatcher<Peer>> dispatchers = null)
+	public Connection(IPEndPoint endPoint, IEnumerable<IMsgDispatcher> dispatchers = null)
 		: this(dispatchers) => this.endPoint = endPoint;
 	
 	public Connection Bind(IPEndPoint ep)

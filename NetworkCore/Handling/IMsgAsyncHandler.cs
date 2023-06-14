@@ -3,7 +3,7 @@ using NetworkCore.Data;
 
 namespace NetworkCore.Handling;
 
-public interface IMsgAsyncHandler<TSender>
+public interface IMsgAsyncHandler
 {
-	Task HandleAsync(Message message, TSender sender);
+	Task HandleAsync(Message message, Peer peer);
 }
