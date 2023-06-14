@@ -22,7 +22,7 @@ public class Listener
 	/// <summary>
 	/// Message dispatchers used to route incoming messages.
 	/// </summary>
-	private IMsgDispatcher<Client>[] msgDispatchers;
+	private IMsgDispatcher<Peer>[] msgDispatchers;
 		
 	/// <summary>
 	/// Data model for this listener.
@@ -43,35 +43,32 @@ public class Listener
 
 	public EndPoint EndPoint => this.socket.LocalEndPoint;
 
-	#region Delegates
-
-	public delegate void MessageHandler(Message message, Client client);
-
-	public delegate void ErrorHandler(ListenerError errorType, Exception exception);
-
-	#endregion
-
 	#region Events
 
 	/// <summary>
-	/// Client connected event.
+	/// Fired when a peer connected.
 	/// </summary>
-	public event ClientHandler ClientConnected;
+	public event Action<Peer> PeerConnected;
 
 	/// <summary>
-	/// Client disconnected event.
+	/// Fired when a peer disconnected.
 	/// </summary>
-	public event Action<Client, DisconnectType> ClientDisconnected;
+	public event Action<Peer, DisconnectType> PeerDisconnected;
 
 	/// <summary>
-	/// Fired when a message is received from the client.
+	/// Fired when a message is received from the peer.
 	/// </summary>
-	public event MessageHandler MessageReceived;
+	public event Action<Message, Peer> MessageReceived;
  
 	/// <summary>
-	/// Fired when internal error occurs.
+	/// Fired when an error occured while trying to receive a message.
 	/// </summary>
-	public event ErrorHandler ErrorOccurred;
+	public event Action<Exception, Peer> MessageReceiveError;
+	
+	/// <summary>
+	/// Fired when error occurs while accepting connections.
+	/// </summary>
+	public event Action<Exception> ConnectionAcceptError;
 
 	/// <summary>
 	/// Fired when an exception is occured in one of the message dispatchers.
@@ -80,20 +77,20 @@ public class Listener
 		
 	#endregion
 
-	public Listener(IEnumerable<IMsgDispatcher<Client>> dispatchers = null)
+	public Listener(IEnumerable<IMsgDispatcher<Peer>> dispatchers = null)
 	{
 		this.socket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
 		{
 			ExclusiveAddressUse = true
 		};
-			
-		this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher<Client>>();
+		
+		this.msgDispatchers = dispatchers?.ToArray() ?? Array.Empty<IMsgDispatcher<Peer>>();
 	}
 
-	public Listener(IPEndPoint endPoint, IEnumerable<IMsgDispatcher<Client>> dispatchers = null) : this(dispatchers) =>
+	public Listener(IPEndPoint endPoint, IEnumerable<IMsgDispatcher<Peer>> dispatchers = null) : this(dispatchers) =>
 		this.Bind(endPoint);
 
-	public Listener(string ip, ushort port, IEnumerable<IMsgDispatcher<Client>> dispatchers = null) 
+	public Listener(string ip, ushort port, IEnumerable<IMsgDispatcher<Peer>> dispatchers = null) 
 		: this(Tools.BuildIpEndPoint(ip, port), dispatchers) { }
 
 	public Listener Bind(IPEndPoint endPoint)
@@ -104,16 +101,18 @@ public class Listener
 		
 	public Listener Bind(string ip, ushort port) => this.Bind(Tools.BuildIpEndPoint(ip, port));
 
-	public Task BeginListening(ushort queueLength, CancellationToken stopToken = default)
+	public Task Listen(ushort queueLength, CancellationToken cancellationToken = default)
 	{
+		// TODO: prevent multiple calls to this method (bool variable check in lock).
+		
 		// Create empty data model in case if no model is set.
 		this.Model ??= new();
-			
+		
 		this.socket.Listen(queueLength);
 
 		var acceptTask = Task.Run(async () =>
 		{
-			while(true)
+			while(!cancellationToken.IsCancellationRequested)
 			{
 				Socket clientSocket = null;
 
@@ -121,119 +120,69 @@ public class Listener
 				{
 					clientSocket = await this.socket.AcceptAsync().ConfigureAwait(false);
 				}
+				catch(SocketException e) when(e.SocketErrorCode is SocketError.OperationAborted)
+				{
+					// Stop accepting new connections because the socket is closed during
+					// the connection accept operation.
+					return;
+				}
 				catch(ObjectDisposedException)
 				{
-					throw;
+					// Stop accepting new connections because the socket was closed.
+					return;
 				}
-				catch(TimeoutException) { }
-				catch
+				catch(TimeoutException)
 				{
-					// ignored.
+					continue;
+				}
+				catch(Exception e)
+				{
+					this.ConnectionAcceptError?.Invoke(e);
 				}
 
-				if(clientSocket is not null) this.RunReceiveTask(clientSocket, stopToken);
-				if(stopToken.IsCancellationRequested) break;
-			}
-		}, stopToken);
+				if(clientSocket is not null)
+				{
+					var peer = new Peer(clientSocket, this.Model);
+					peer.Disconnected += type => this.PeerDisconnected?.Invoke(peer, type);
+					peer.RawMessageReceived += msgBytes =>
+					{
+						var message = this.Model.Deserialize(msgBytes); // TODO: catch deserialization exception.
 
-		// We cannot cancel AcceptTask so end task immediately after cancel received.
-		return Task.WhenAny(acceptTask, Task.Run(async () =>
+						this.MessageReceived?.Invoke(message, peer);
+
+						for(var i = 0; i < this.msgDispatchers.Length; i++)
+						{
+							try
+							{
+								this.msgDispatchers[i]?.DispatchMessage(message, peer);
+							}
+							catch(Exception e)
+							{
+								this.DispatcherException?.Invoke(e);
+							}
+						}
+					};
+					peer.MessageReceiveError += e => this.MessageReceiveError?.Invoke(e, peer);
+					this.PeerConnected?.Invoke(peer);
+					peer.RunReceiveTask(this.ReceiveBufferSize);
+				}
+			}
+		}, cancellationToken);
+
+		cancellationToken.Register(() =>
 		{
-			await Task.Delay(-1, stopToken).ConfigureAwait(false);
-			this.socket.Shutdown(SocketShutdown.Both);
-			this.socket.Close(1000);
-		}));
+			try
+			{
+				this.socket.Shutdown(SocketShutdown.Both);
+			}
+			catch(SocketException)
+			{
+				// ignored.
+			}
+
+			this.socket.Close();
+		});
+		
+		return acceptTask;
 	}
-
-	private void RunReceiveTask(Socket clientSocket, CancellationToken stopToken) => Task.Run(async () =>
-	{
-		var client = new Client(clientSocket, this.Model, this.ReceiveBufferSize);
-
-		this.ClientConnected?.Invoke(client);
-
-		// Handle client disconnect while sending a message.
-		client.DisconnectedInternal += delegate(Client c)
-		{
-			c.CloseSocket();
-			this.ClientDisconnected?.Invoke(c, DisconnectType.SendError);
-		};
-
-		var manualDisconnectToken = client.DisconnectToken;
-
-		while(!(stopToken.IsCancellationRequested || manualDisconnectToken.IsCancellationRequested))
-		{
-			int bytesRead;
-
-			try
-			{
-				bytesRead = await client.Socket
-					.ReceiveAsync(new ArraySegment<byte>(client.Buffer.Data), SocketFlags.None)
-					.ConfigureAwait(false);
-			}
-			catch(ObjectDisposedException e)
-			{
-				this.ErrorOccurred?.Invoke(ListenerError.SocketClosed, e);
-				this.ClientDisconnected?.Invoke(client, DisconnectType.ReceiveError);
-				return;
-			}
-			catch(SocketException e)
-			{
-				client.CloseSocket();
-				this.ErrorOccurred(ListenerError.SocketError, e);
-				this.ClientDisconnected?.Invoke(client, DisconnectType.ReceiveError);
-				return;
-			}
-			catch(Exception e)
-			{
-				client.CloseSocket();
-				this.ErrorOccurred?.Invoke(ListenerError.Unknown, e);
-				this.ClientDisconnected?.Invoke(client, DisconnectType.ReceiveError);
-				return;
-			}
-
-			// Detect client disconnect.
-			if(bytesRead <= 0)
-			{
-				client.CloseSocket();
-				this.ClientDisconnected?.Invoke(client, DisconnectType.Normal);
-				return;
-			}
-
-			try
-			{
-				client.Buffer.TryReceive(bytesRead);
-			}
-			catch(ProtocolViolationException e)
-			{
-				// Buffer corrupted. Disconnecting client.
-				client.CloseSocket();
-				this.ClientDisconnected?.Invoke(client, DisconnectType.BufferError);
-				this.ErrorOccurred?.Invoke(ListenerError.BufferCorrupted, e);
-				return;
-			}
-
-			// Handle messages in the queue.
-			while(client.Buffer.TryGetMsgBytes(out var messageBytes))
-			{
-				var message = this.Model.Deserialize(messageBytes); // TODO: catch deserialization exception.
-
-				// Update last data receive time.
-				client.LastDataReceive = DateTime.UtcNow;
-
-				this.MessageReceived?.Invoke(message, client);
-
-				for(var i = 0; i < this.msgDispatchers.Length; i++)
-				{
-					try
-					{
-						this.msgDispatchers[i]?.DispatchMessage(message, client);
-					}
-					catch(Exception e)
-					{
-						this.DispatcherException?.Invoke(e);
-					}
-				}
-			}
-		}
-	}, stopToken);
 }
