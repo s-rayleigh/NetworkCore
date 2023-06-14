@@ -161,6 +161,9 @@ public sealed class Peer
 				return;
 			}
 
+			// Early return if stop receiving is requested.
+			if(!this.receive) return;
+
 			// Detect TCP disconnect request.
 			if(bytesReceived <= 0)
 			{
