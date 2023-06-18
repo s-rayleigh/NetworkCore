@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
-namespace NetworkCore.Data;
+namespace NetworkCore.Transport.Tcp;
 
 /// <summary>
 /// Buffer for receiving messages.

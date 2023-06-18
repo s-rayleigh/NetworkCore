@@ -8,7 +8,7 @@ using NetworkCore.Data;
 using NetworkCore.Handling;
 using NetworkCore.Transport;
 
-namespace NetworkCore.Client;
+namespace NetworkCore;
 
 /// <summary>
 /// Connection to the remote host.

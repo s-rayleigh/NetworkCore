@@ -10,7 +10,7 @@ using NetworkCore.Data;
 using NetworkCore.Handling;
 using NetworkCore.Transport;
 
-namespace NetworkCore.Server;
+namespace NetworkCore;
 
 /// <summary>
 /// Connection listener on the server side.
