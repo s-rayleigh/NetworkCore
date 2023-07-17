@@ -6,7 +6,7 @@
         <Description>Network interaction library</Description>
         <Copyright>2020 Vladislav Pashaiev</Copyright>
         <PackageTags>network, framework</PackageTags>
-        <TargetFrameworks>netstandard2.0;netcoreapp2.1</TargetFrameworks>
+        <TargetFrameworks>net48;netstandard2.0;netcoreapp2.1</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>
