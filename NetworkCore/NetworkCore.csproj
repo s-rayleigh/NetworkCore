@@ -11,6 +11,13 @@
 
     <ItemGroup>
       <PackageReference Include="JetBrains.Annotations" Version="2019.1.3" />
-      <PackageReference Include="protobuf-net" Version="2.4.0" />
+      <PackageReference Include="protobuf-net" Version="2.4.8" />
     </ItemGroup>
+
+    <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+        <DefineConstants>$(DefineConstants);NO_MODEL_COMPILE</DefineConstants>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
+        <DefineConstants>$(DefineConstants);NO_MODEL_COMPILE</DefineConstants>
+    </PropertyGroup>
 </Project>

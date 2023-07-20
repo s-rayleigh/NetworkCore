@@ -65,7 +65,7 @@ namespace NetworkCore.Data
 			}
 		}
 
-		private RuntimeTypeModel typeModel;
+		private TypeModel typeModel;
 
 		/// <summary>
 		/// Added packet types tree.
@@ -84,6 +84,11 @@ namespace NetworkCore.Data
 			this.containerRoot = new TypeContainer(typeof(Container), this);
 			this.structTypes = new List<TypeContainer>();
 			this.addedTypes = new List<Type>();
+		}
+
+		public DataModel(TypeModel typeModel) : this()
+		{
+			this.typeModel = typeModel;
 		}
 		
 		private void RememberType(Type type)
@@ -124,17 +129,36 @@ namespace NetworkCore.Data
 
 		public void Build()
 		{
-			this.typeModel = TypeModel.Create();
-			FillTypeModel(this.typeModel, this.containerRoot);
-			FillTypeModel(this.typeModel, this.packetRoot);
-
-			foreach(var typeContainer in this.structTypes)
-			{
-				FillTypeModel(this.typeModel, typeContainer);
-			}
+			var runtimeTypeModel = RuntimeTypeModel.Create();
 			
-			this.typeModel.CompileInPlace();
+			FillTypeModel(runtimeTypeModel, this.containerRoot);
+			FillTypeModel(runtimeTypeModel, this.packetRoot);
+
+			foreach(var typeContainer in this.structTypes) FillTypeModel(runtimeTypeModel, typeContainer);
+
+			runtimeTypeModel.CompileInPlace();
+			this.typeModel = runtimeTypeModel;
 		}
+
+		#if !NO_MODEL_COMPILE
+		public void Compile(string modelName, string outputPath)
+		{
+			if(string.IsNullOrWhiteSpace(modelName))
+			{
+				throw new ArgumentException("Model name must be specified.", nameof(modelName));
+			}
+
+			if(this.typeModel is null) this.Build();
+
+			if(this.typeModel is RuntimeTypeModel rtm)
+			{
+				rtm.Compile(new RuntimeTypeModel.CompilerOptions { TypeName = modelName, OutputPath = outputPath });
+				return;
+			}
+
+			throw new InvalidOperationException("Model must be created at runtime to be able to compile it.");
+		}
+		#endif
 
 		public void Clear()
 		{
