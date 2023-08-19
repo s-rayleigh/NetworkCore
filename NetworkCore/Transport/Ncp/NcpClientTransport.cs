@@ -1,11 +1,10 @@
 using System;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading.Tasks;
 
-namespace NetworkCore.Transport.Udp;
+namespace NetworkCore.Transport.Ncp;
 
-public class UdpClientTransport : UdpTransport, IClientTransport
+public class NcpClientTransport : NcpTransport, IClientTransport
 {
 	public event Action<byte[]> RawMsgReceived;
 	

@@ -3,9 +3,9 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NetworkCore.Transport.Udp;
+namespace NetworkCore.Transport.Ncp;
 
-public class UdpServerTransport : UdpTransport, IServerTransport
+public class NcpServerTransport : NcpTransport, IServerTransport
 {
 	public event Action<int, IPEndPoint> ClientConnected;
 	
