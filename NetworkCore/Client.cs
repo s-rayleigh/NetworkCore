@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using NetworkCore.Data;
@@ -86,12 +87,12 @@ public class Client
 	/// </summary>
 	/// <returns>Peer that represents the server.</returns>
 	/// <exception cref="InvalidOperationException">If client already connected.</exception>
-	public async Task<Peer> Connect(IPEndPoint ipEndPoint)
+	public async Task<Peer> Connect(IPEndPoint ipEndPoint, CancellationToken cancellationToken = default)
 	{
 		if(ipEndPoint is null) throw new ArgumentNullException(nameof(ipEndPoint));
 		this.Model ??= new();
 
-		await this.transport.Connect(ipEndPoint);
+		await this.transport.Connect(ipEndPoint, cancellationToken);
 
 		this.Peer = new(ipEndPoint);
 		this.Peer.WantsDisconnect += () => this.transport.Disconnect();

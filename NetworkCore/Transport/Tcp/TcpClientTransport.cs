@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NetworkCore.Transport.Tcp;
@@ -15,7 +16,7 @@ public class TcpClientTransport : TcpTransport, IClientTransport
 
 	public event Action<DisconnectType> Disconnected;
 	
-	public async Task Connect(IPEndPoint ipEndPoint)
+	public async Task Connect(IPEndPoint ipEndPoint, CancellationToken cancellationToken)
 	{
 		await this.socket.ConnectAsync(ipEndPoint).ConfigureAwait(false);
 		this.tcpRemoteHost = new(this.socket);

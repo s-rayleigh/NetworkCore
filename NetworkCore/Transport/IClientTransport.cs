@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NetworkCore.Transport;
@@ -12,7 +13,7 @@ public interface IClientTransport
 
 	event Action<DisconnectType> Disconnected;
 	
-	Task Connect(IPEndPoint ipEndPoint);
+	Task Connect(IPEndPoint ipEndPoint, CancellationToken cancellationToken);
 
 	Task Disconnect();
 

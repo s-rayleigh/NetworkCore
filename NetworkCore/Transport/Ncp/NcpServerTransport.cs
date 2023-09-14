@@ -7,6 +7,10 @@ namespace NetworkCore.Transport.Ncp;
 
 public class NcpServerTransport : NcpTransport, IServerTransport
 {
+	public uint MaxClients { get; init; } = uint.MaxValue;
+
+	public uint MaxPendingConnections { get; init; } = 1024;
+	
 	public event Action<int, IPEndPoint> ClientConnected;
 	
 	public event Action<Exception> ConnectionAcceptError;
