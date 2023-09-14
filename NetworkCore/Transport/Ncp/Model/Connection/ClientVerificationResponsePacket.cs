@@ -5,9 +5,9 @@ namespace NetworkCore.Transport.Ncp.Model.Connection;
 
 internal struct ClientVerificationResponsePacket : IConnectionPacket
 {
-	public short clientSequenceNumber;
+	public SequenceNumber clientSequenceNumber;
 
-	public int clientId;
+	public ClientId clientId;
 
 	public int nonce;
 	

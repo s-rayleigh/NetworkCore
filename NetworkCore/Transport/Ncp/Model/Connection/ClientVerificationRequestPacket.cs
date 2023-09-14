@@ -1,14 +1,13 @@
 using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
 
 namespace NetworkCore.Transport.Ncp.Model.Connection;
 
 internal struct ClientVerificationRequestPacket : IConnectionPacket
 {
-	public int clientId;
+	public ClientId clientId;
 
-	public short serverSequenceNumber;
+	public SequenceNumber serverSequenceNumber;
 
 	public byte powChallenge;
 	
