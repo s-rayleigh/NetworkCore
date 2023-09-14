@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -57,12 +58,14 @@ public class NcpClientTransport : NcpTransport, IClientTransport
 		{
 			using var cancelSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 			var connectionRequest = this.BuildConnectionRequestPacket(out clientSequenceNum);
-			var packetWaitTask = this.WaitForConnectionPacket<ClientVerificationRequestPacket>(cancelSource.Token);
+			var responseTask = this.WaitForOneOfConnectionPackets(
+				new IConnectionPacket[] { new ClientVerificationRequestPacket(), new ConnectionErrorPacket() },
+				cancelSource.Token);
 			var connectionRequestTask = this.IntervalSend(connectionRequest.AsMemory(), this.SendInterval,
 				cancelSource.Token);
 
 			// NOTE: awaiting the 'connectionRequestTask' is required to catch its underneath exceptions.
-			var resultingTask = await Task.WhenAny(packetWaitTask, connectionRequestTask);
+			var resultingTask = await Task.WhenAny(responseTask, connectionRequestTask);
 			
 			// Cancel the other task.
 			cancelSource.Cancel();
@@ -79,7 +82,15 @@ public class NcpClientTransport : NcpTransport, IClientTransport
 				}
 			}
 
-			var verificationRequestPacket = packetWaitTask.Result;
+			var packet = responseTask.Result;
+
+			if(packet is ConnectionErrorPacket errorPacket)
+			{
+				// TODO: error codes
+				throw new Exception("");
+			}
+			
+			var verificationRequestPacket = (ClientVerificationRequestPacket)packet;
 			serverSequenceNum = verificationRequestPacket.serverSequenceNumber;
 			clientId = verificationRequestPacket.clientId;
 		}
@@ -179,6 +190,30 @@ public class NcpClientTransport : NcpTransport, IClientTransport
 			if(!packet.TryParse(packetBytes[1..])) continue;
 			
 			return packet;
+		}
+	}
+
+	private async Task<IConnectionPacket> WaitForOneOfConnectionPackets(IReadOnlyList<IConnectionPacket> packets,
+		CancellationToken cancellationToken)
+	{
+		var channelReader = this.connectionPacketsChannel.Reader;
+		
+		while(true)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			
+			var packetBytes = await channelReader.ReadAsync(cancellationToken);
+
+			foreach(var packet in packets)
+			{
+				// Filter received packets by type.
+				if((ConnectionPacketType)packetBytes[0] != packet.Type) continue;
+
+				// Skip connection packet type and try to parse the packet.
+				if(!packet.TryParse(packetBytes[1..])) continue;
+
+				return packet;
+			}
 		}
 	}
 	
